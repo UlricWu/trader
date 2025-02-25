@@ -1,8 +1,0 @@
--- CREATE TABLE `daily` (
---   `ts_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '股票代码',
---   `trade_date` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci not NULL COMMENT '交易日期',
---   `open` float(5) DEFAULT NULL COMMENT '归属人',
---   `productId` varchar(50) DEFAULT NULL COMMENT '产品型号',
---   `quality` int(11) DEFAULT NULL COMMENT '预留字段',
---   KEY `idx_ap_mac` (`ap_mac`) USING BTREE,
--- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

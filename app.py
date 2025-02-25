@@ -26,15 +26,27 @@ def create_app():
     def index():
         return jsonify({'hello': 'world'})
 
-    @apps.route('/update_daily', methods=['POST'])
+    @apps.route('/update', methods=['POST'])
     @logs.catch()
-    def update_daily():
-        inputs = json.loads(request.data)  # flask.request
-        daily = data.get_daily(inputs['ts_code'])
-        db.insert("daily", daily)
-        return jsonify('done')
+    def update_tables():
+        try:
+            inputs = json.loads(request.data)  # flask.request
+            logs.record_log('inputs', inputs)
+            if inputs:
+                tables = inputs['tables']
+            else:
+                # tables = ["daily", "stock_basic"]
+                tables = ["stock_basic", "daily", ]
+            today = inputs.get('today')
+            for table in tables:
+                record = data.get_table(table, today)
+                db.insert(table, record)
+            return jsonify('done')
 
-    @apps.route('/get_daily', methods=['get'])
+        except Exception as e:
+            return jsonify({'error': str(e)})
+
+    @apps.route('/get_info', methods=['get'])
     @logs.catch()
     def extra_daily():
         return jsonify(db.extract("daily"))

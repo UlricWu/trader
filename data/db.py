@@ -22,10 +22,10 @@ class DB:
             return
 
         sql = f"""create table IF NOT EXISTS {table} ({cols})   """
-        con = self._init()
-        cur = con.cursor()
+        connection = self._init()
+        cur = connection.cursor()
         cur.execute(sql)
-        cur.close()
+        connection.close()
 
         logs.record_log(f"SQL: {sql} has been operated")
 
@@ -34,11 +34,11 @@ class DB:
             return
         con = self._init()
         df.to_sql(table, con, if_exists='replace', index=True)
-        # self.con.cur.close()
+        con.cur.close()
         # res = self.cur.execute(f"select * from {table}")
 
         logs.record_log(f"SQL: insert {table} has been operated ")
 
     def extract(self, table):
-        con = self._init()
-        return con.execute(f"select * from {table}").fetchall()
+        connection = self._init()
+        return connection.execute(f"select * from {table}").fetchall()
