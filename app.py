@@ -1,6 +1,6 @@
 import yaml
 import os
-from data import DB, Data
+from data import db, Data
 from utilts import logs
 import os, subprocess, pickle, requests, json
 from flask import Flask, jsonify, request
@@ -18,7 +18,7 @@ def create_app():
     apps = Flask(__name__)
     logs.record_log("run gunicorn")
     print(config['data'])
-    db = DB(config['data']['database'])
+    # db = DB(config['data']['database'])
     data = Data(config['data']['token'])
 
     @apps.route('/', methods=['GET'])
@@ -31,9 +31,9 @@ def create_app():
     def update_tables():
         try:
             inputs = json.loads(request.data)  # flask.request
-            logs.record_log('inputs', inputs)
+            logs.record_log(f'inputs = {inputs}')
             if inputs:
-                tables = inputs['tables']
+                tables = inputs.get('tables')
             else:
                 # tables = ["daily", "stock_basic"]
                 tables = ["stock_basic", "daily", ]
@@ -41,25 +41,32 @@ def create_app():
             for table in tables:
                 record = data.get_table(table, today)
 
-
-                db.insert(table, record)
-            return jsonify('done')
-
+                db.update_daily(table, record)
+            # return jsonify('done')
+            return jsonify(db.extract_table(day=today))
         except Exception as e:
             return jsonify({'error': str(e)})
 
-    @apps.route('/get_info', methods=['get'])
+    @apps.route('/get_daily', methods=['post', 'get'])
     @logs.catch()
     def extra_daily():
-        return jsonify(db.extract("daily"))
+        inputs = json.loads(request.data)  # flask.request
+        logs.record_log(f'inputs = {inputs}')
+        return jsonify(db.extract_table())
 
     return apps
 
 
 if __name__ == '__main__':
+
+    # lsof -t -i:6001 | xargs -r kill
+
+    port = 6001
+    # command = f"lsof -t -i:{port} | xargs -r kill"
+    # os.system(command)
     trader_app = create_app()
 
-    trader_app.run(host="0.0.0.0", port=6001, debug=True)
+    trader_app.run(host="0.0.0.0", port=port, debug=True)
 
 else:
     trader_app = create_app()
