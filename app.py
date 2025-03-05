@@ -40,6 +40,8 @@ def create_app():
             today = inputs.get('today')
             for table in tables:
                 record = data.get_table(table, today)
+
+
                 db.insert(table, record)
             return jsonify('done')
 
