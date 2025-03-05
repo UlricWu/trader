@@ -17,7 +17,7 @@ def create_app():
     logs.record_log("start gunicorn")
     apps = Flask(__name__)
     logs.record_log("run gunicorn")
-    print(config['data'])
+    logs.record_log(config['data'])
     # db = DB(config['data']['database'])
     data = Data(config['data']['token'])
 
@@ -42,8 +42,8 @@ def create_app():
                 record = data.get_table(table, today)
 
                 db.update_daily(table, record)
-            # return jsonify('done')
-            return jsonify(db.extract_table(day=today))
+            return jsonify('done')
+
         except Exception as e:
             return jsonify({'error': str(e)})
 
@@ -52,7 +52,7 @@ def create_app():
     def extra_daily():
         inputs = json.loads(request.data)  # flask.request
         logs.record_log(f'inputs = {inputs}')
-        return jsonify(db.extract_table())
+        return db.extract_table().head().to_json(orient='records')
 
     return apps
 

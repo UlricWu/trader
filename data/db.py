@@ -3,6 +3,8 @@ import sqlite3
 from utilts import logs
 from datetime import datetime
 
+import pandas as pd
+
 
 class Database:
     def __init__(self, name="tutorial.db"):
@@ -78,12 +80,15 @@ def update_daily(table, data):
         db.execute(f"drop table if exists {temp_table}")
 
 
-def extract_table(table='daily', day=None):
+def extract_table(table='daily', day=None, pandas=True):
     if not day:
         day = datetime.today().strftime('%Y%m%d')
     sql = f"select * from {table} where trade_date = '{day}'"
 
     with Database() as db:
+        if pandas:
+            return pd.read_sql_query(sql, db.connection)
+
         return db.query(sql)
 
 
