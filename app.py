@@ -18,7 +18,7 @@ def create_app():
     apps = Flask(__name__)
     logs.record_log("run gunicorn")
     logs.record_log(config['data'])
-    # db = DB(config['data']['database'])
+    database = config['data']['database']
     data = Data(config['data']['token'])
 
     @apps.route('/', methods=['GET'])
@@ -42,6 +42,11 @@ def create_app():
                 record = data.get_table(table, today)
 
                 db.update_daily(table, record)
+            # print(os.path.curdir)
+
+            # subprocess.check_call(["sqlite3", database, f".backup "])
+
+            db.back_db()
             return jsonify('done')
 
         except Exception as e:

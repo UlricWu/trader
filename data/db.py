@@ -122,3 +122,15 @@ def create_table(table):
     #
     #     sql = f"""create table IF NOT EXISTS {table} ({cols})   """
     # logs.record_log(f"SQL: {sql} has been operated")
+
+
+def back_db():
+    # source = sqlite3.connect('existing_db.db')
+    # dest = sqlite3.connect(':memory:')
+    day = datetime.today().strftime('%Y%m%d')
+    path = f'db/backup_{day}.db'
+    with Database() as source:
+        with Database(path) as dest:
+            source.connection.backup(dest.connection)
+
+    logs.record_log(f"Backup complete for {day} in {path}")
