@@ -1,3 +1,4 @@
+import pandas as pd
 import tushare as ts
 from datetime import datetime
 
@@ -29,6 +30,10 @@ class Data:
 
     def get_realtime_tick(self, ts_code='600000.SH'):
         return ts.realtime_tick(ts_code=ts_code)
+
+    def load_data_from_file(self, path):
+        """Load data from CSV file."""
+        return pd.read_csv(path)
 
     # def update(self, table,start_date=None, end_date=None):
     #     if not table:
