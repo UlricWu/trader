@@ -10,6 +10,12 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Union
 from datetime import datetime
+import numpy as np
+import matplotlib.pyplot as plt
+from typing import List
+from datetime import datetime
+
+import pandas as pd
 
 
 @dataclass
@@ -26,9 +32,12 @@ class Position:
     """ownership state of a stock in the portfolio"""
     symbol: str
     quantity: int
-    avg_price: float  # The average price at which shares were purchased
+    entry_price: float  # The average price at which shares were purchased
 
-    # todo =add total_cost_with_fee
+    # entry_price: Decimal  # The price at which the asset was purchased
+    # current_price: float  # The current market price of the asset
+
+    # todo =add total_cost_with_fee(commission fee & slippage)
     # broker_commission_rate: float = 0.0003  # 0.03% broker commission
     # transaction_fee_rate: float = 0.0005  # 0.05% transaction fee
     # stamp_duty_rate: float = 0.001  # 0.1% stamp duty (only for sell transactions)
@@ -38,14 +47,20 @@ class Position:
             raise ValueError(f"Symbol mismatch: {self.symbol} vs {other.symbol}")
 
         if isinstance(other, Position):
-            price = other.avg_price
+            price = other.entry_price
         elif isinstance(other, Fill):
             price = other.price
         else:
             raise TypeError(f"Unsupported type for addition: {type(other)}")
 
+        # if other.quantity <0 and self.quantity >0:
+        #     total_quantity = self.quantity + other.quantity if self.quantity > abs(other.quantity) else 0
+        #     total_price = 0
+        #     return Position(symbol=self.symbol, quantity=total_quantity, entry_price=new_avg_price)
+        #
+
         # Calculate the new quantity and average price
-        total_cost = self.avg_price * self.quantity + other.quantity * price
+        total_cost = self.entry_price * self.quantity + other.quantity * price
 
         # Apply transaction fees (broker commission and transaction fee)
         # total_cost_with_fee = total_cost * (1 + self.broker_commission_rate + self.transaction_fee_rate)
@@ -54,7 +69,7 @@ class Position:
         new_avg_price = total_cost / total_quantity if total_quantity != 0 else 0
 
         # Return a new Position with updated quantity and avg_price
-        return Position(symbol=self.symbol, quantity=total_quantity, avg_price=new_avg_price)
+        return Position(symbol=self.symbol, quantity=total_quantity, entry_price=new_avg_price)
         # broker_commission_rate=self.broker_commission_rate,
         # transaction_fee_rate=self.transaction_fee_rate,
         # stamp_duty_rate=self.stamp_duty_rate)
@@ -77,7 +92,7 @@ class TransactionHistory:
     timestamp: datetime
     symbol: str
     quantity: int
-    price: float
+    value: float
     transaction_type: str  # 'buy', 'sell', or 'mtm' (for mark-to-market)
     # slippage: Optional[float] = None
     # commission: Optional[float] = None
@@ -91,24 +106,35 @@ class Portfolio:
         self.snapshots = []
         self._current_value = initial_cash
 
+    def __repr__(self):
+        return f"Portfolio(cash={self.cash}, market_value={self.market_value()}, timestamp=)"
+
     def update(self, fills):
         # Process trade fills and update portfolio state
         for fill in fills:
             self.update_position(fill)
 
     def update_position(self, fill: Fill):
-        cost = fill.quantity * fill.price
 
-        # Update cash
-        self.cash -= cost
+        # position = self.get_position(fill.symbol)
+        # if fill.quantity <0 and position.quantity >0:  #sell
+        #     fill = Fill(symbol=fill.symbol, quantity=-position.quantity, price=price, timestamp=timestamp)
 
         if fill.symbol in self.positions:
             # If the position exists, use __add__ to update it
             self.positions[fill.symbol] += fill
         else:
             # If position does not exist, create it from the fill
-            self.positions[fill.symbol] = Position(symbol=fill.symbol, quantity=fill.quantity, avg_price=fill.price)
+            self.positions[fill.symbol] = Position(symbol=fill.symbol, quantity=fill.quantity, entry_price=fill.price)
             # Update position
+
+        # Update cash
+        # position = self.get_position(fill.symbol)
+        # if fill.quantity <0 and position.quantity >0:
+        #     fill = Fill(symbol=fill.symbol, quantity=-position.quantity, price=fill.price, date=fill.date)
+        #     cosh = -fill.quantity * fill.price
+        cost = fill.quantity * fill.price
+        self.cash -= cost
 
         # Record this fill in history
         # Record transaction in history as a structured event
@@ -116,7 +142,7 @@ class Portfolio:
             timestamp=fill.date,
             symbol=fill.symbol,
             quantity=fill.quantity,
-            price=fill.price,
+            value=fill.price,
             transaction_type="buy" if fill.quantity > 0 else "sell",
         )
         self.history.append(history_event)
@@ -124,12 +150,15 @@ class Portfolio:
         # After each update, take a snapshot of the portfolio
         self.take_snapshot()
 
+    def get_position(self, symbol: str) -> Position:
+        return self.positions.get(symbol, Position(symbol=symbol))
+
     def market_value(self, current_prices: Dict[str, float] = None) -> float:
         """ Calculate the total market value of the portfolio. """
 
         if not current_prices:
             return sum(
-                pos.quantity * pos.avg_price for symbol, pos in self.positions.items()
+                pos.quantity * pos.entry_price for symbol, pos in self.positions.items()
             )
 
         total_value = 0
@@ -162,10 +191,40 @@ class Portfolio:
             timestamp=timestamp,
             symbol="MTM",
             quantity=0,
-            price=value,
+            value=value,
             transaction_type="mtm"
         )
         self.history.append(mtm_event)
 
         # After mark-to-market, take a snapshot of the portfolio
         self.take_snapshot()
+
+    @property
+    def equity_curve(self) -> List[float]:
+        return [snap.total_value for snap in self.snapshots]
+
+    @property
+    def dates(self) -> List[datetime]:
+        return [snap.date for snap in self.snapshots]
+
+    @property
+    def current_value(self) -> float:
+        return self._current_value
+
+    def get_position(self, symbol: str) -> int:
+        """Get the current position of a symbol."""
+        return self.positions.get(symbol, 0)
+
+    def get_trade_history(self) -> List[TransactionHistory]:
+        """Return the list of trades."""
+        return self.history
+
+    def summary(self) -> Dict[str, Dict[str, float]]:
+        return {
+            symbol: {
+                "quantity": pos.quantity,
+                "avg_price": round(pos.entry_price, 2),
+                "market_value": round(pos.quantity * pos.entry_price, 2)
+            }
+            for symbol, pos in self.positions.items()
+        }

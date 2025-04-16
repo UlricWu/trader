@@ -30,3 +30,9 @@ class Production(Common):
 
 class Staging(Production):
     DEBUG = True
+
+
+# schema_config.py
+
+
+

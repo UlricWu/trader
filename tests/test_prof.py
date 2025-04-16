@@ -18,8 +18,8 @@ approx = pytest.approx(153.33, rel=1e-2)
 def setup_portfolio():
     portfolio = Portfolio(initial_cash=100000)
     portfolio.positions = {
-        "AAPL": Position(symbol="AAPL", quantity=100, avg_price=150),
-        "MSFT": Position(symbol="MSFT", quantity=50, avg_price=250),
+        "AAPL": Position(symbol="AAPL", quantity=100, entry_price=150),
+        "MSFT": Position(symbol="MSFT", quantity=50, entry_price=250),
     }
     return portfolio
 
@@ -34,7 +34,7 @@ def test_initialization(setup_portfolio):
 # Test: Add a position to the portfolio
 def test_add_position(setup_portfolio):
     portfolio = setup_portfolio
-    portfolio.positions["GOOG"] = Position(symbol="GOOG", quantity=10, avg_price=1000)
+    portfolio.positions["GOOG"] = Position(symbol="GOOG", quantity=10, entry_price=1000)
     assert "GOOG" in portfolio.positions, "GOOG position was not added"
     assert portfolio.positions["GOOG"].quantity == 10, "GOOG position quantity is incorrect"
 
@@ -50,7 +50,7 @@ def test_update_position(setup_portfolio):
 
     position = portfolio.positions["AAPL"]
     assert position.quantity == 150, f"Position quantity after fill is incorrect: {position.quantity}"
-    assert position.avg_price == approx, f"Position average price after fill is incorrect: {position.avg_price}"
+    assert position.entry_price == approx, f"Position average price after fill is incorrect: {position.entry_price}"
 
 
 # Test: Calculate market value based on positions and prices
@@ -87,30 +87,30 @@ def test_take_snapshot(setup_portfolio):
 
 # Test: Adding two positions using the overloaded __add__ method
 def test_add_positions():
-    position1 = Position(symbol="AAPL", quantity=100, avg_price=150)
-    position2 = Position(symbol="AAPL", quantity=50, avg_price=160)
+    position1 = Position(symbol="AAPL", quantity=100, entry_price=150)
+    position2 = Position(symbol="AAPL", quantity=50, entry_price=160)
 
     new_position = position1 + position2
     assert new_position.quantity == 150, "Total quantity after addition is incorrect"
-    assert new_position.avg_price == approx, "Average price after addition is incorrect"
+    assert new_position.entry_price == approx, "Average price after addition is incorrect"
 
 
 # Test: Correctly handling fills for different symbols
 def test_fill_position():
-    position = Position(symbol="AAPL", quantity=100, avg_price=150)
+    position = Position(symbol="AAPL", quantity=100, entry_price=150)
     fill = Fill(symbol="AAPL", quantity=50, price=160, date=datetime.now())
     position = position + fill  # Using the overloaded __add__ method
 
     assert position.quantity == 150, f"Position quantity after fill is incorrect: {position.quantity}"
-    assert position.avg_price == approx, f"Position average price after fill is incorrect: {position.avg_price}"
+    assert position.entry_price == approx, f"Position average price after fill is incorrect: {position.entry_price}"
 
 
 # Test: PortfolioSnapshot creation
 def test_portfolio_snapshot():
     portfolio = Portfolio(initial_cash=100000)
     portfolio.positions = {
-        "AAPL": Position(symbol="AAPL", quantity=100, avg_price=150),
-        "MSFT": Position(symbol="MSFT", quantity=50, avg_price=250),
+        "AAPL": Position(symbol="AAPL", quantity=100, entry_price=150),
+        "MSFT": Position(symbol="MSFT", quantity=50, entry_price=250),
     }
     mock_prices = {"AAPL": 155, "MSFT": 260}
 
@@ -129,7 +129,7 @@ def test_portfolio_snapshot():
 def test_missing_prices():
     portfolio = Portfolio(initial_cash=100000)
     portfolio.positions = {
-        "AAPL": Position(symbol="AAPL", quantity=100, avg_price=150),
+        "AAPL": Position(symbol="AAPL", quantity=100, entry_price=150),
     }
     mock_prices = {}  # Missing price for AAPL but used current value
 
@@ -142,7 +142,7 @@ def test_missing_prices():
 def test_take_snapshot_missing_prices():
     portfolio = Portfolio(initial_cash=100000)
     portfolio.positions = {
-        "AAPL": Position(symbol="AAPL", quantity=100, avg_price=150),
+        "AAPL": Position(symbol="AAPL", quantity=100, entry_price=150),
     }
     mock_prices = {}  # Missing price for AAPL but used current value
 

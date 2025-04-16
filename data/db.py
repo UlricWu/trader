@@ -80,6 +80,46 @@ def update_daily(table, data):
         db.execute(f"drop table if exists {temp_table}")
 
 
+# from configs.config import SchemaConfig
+from pydantic import BaseModel
+from typing import Dict
+
+
+class SchemaConfig(BaseModel):
+    ts_code: str
+    trade_date: str
+    open: str
+    high: str
+    low: str
+    close: str
+    vol: str
+
+    @classmethod
+    def from_dict(cls, raw: Dict[str, str]) -> "SchemaConfig":
+        return cls(**raw)
+
+
+def load_and_normalize_data(df: pd.DataFrame) -> pd.DataFrame:
+    rename_map = {
+        "trade_date": "date",
+        "vol": "volume",
+        "ts_code": "symbol"
+    }
+
+    # schema = SchemaConfig().from_dict(s)
+    # rename_map = {
+    #     schema.trade_date: "date",
+    #     schema.ts_code: "symbol",
+    #     schema.open: "open",
+    #     schema.high: "high",
+    #     schema.low: "low",
+    #     schema.close: "close",
+    #     schema.vol: "volume",
+    # }
+    df = df.rename(columns=rename_map)
+    return df
+
+
 def extract_table(name="tutorial.db", table='daily', day=None, start_day=None, pandas=True, ts_code=None):
     if not day:
         day = datetime.today().strftime('%Y%m%d')
