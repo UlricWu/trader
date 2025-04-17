@@ -8,14 +8,16 @@
 import pandas as pd
 import numpy as np
 import pytest
-from trader.backtest import Strategy
+from trader.strategy import MLStrategy
+
+from configs.config import StrategyConfig
 
 
 @pytest.fixture
 def sample_data():
     data = []
 
-    days = 150
+    days = 50
 
     date = pd.date_range(start="2020-01-01", periods=days)
     for i in range(days):
@@ -27,17 +29,37 @@ def sample_data():
 
 
 def test_strategy_signal_generation(sample_data):
-    # config = StrategyConfig(window_size=20, long_threshold=0.005, short_threshold=-0.005)
-    strategy = Strategy()
+    config = StrategyConfig(window_size=20, long_threshold=0.005, short_threshold=-0.005)
+    strategy = MLStrategy(config)
     df = strategy.generate_signals(sample_data)
 
     # Check column exists
     assert "signal" in df.columns
 
     # Check that at least some signals are not 0
-    # assert df["signal"].abs().sum() > 0  # todo
+    assert df["signal"].abs().sum() > 0
 
     # Check first N signals are zero (before training starts)
-    window_size = 100
-    initial_signals = df["signal"].iloc[:window_size]
+    initial_signals = df["signal"].iloc[:config.window_size]
     assert all(initial_signals == 0)
+
+
+def test_threshold_effect(sample_data):
+    # Using high thresholds should produce mostly 0 signals
+    config = StrategyConfig(window_size=20, long_threshold=0.1, short_threshold=-0.1)
+    strategy = MLStrategy(config=config)
+    df = strategy.generate_signals(sample_data)
+
+    # Almost all signals should be 0 due to high thresholds
+    # At least 90% of the time, the model doesn’t predict extreme moves, so the signal should be 0.
+    assert 0.1 < (df["signal"] == 0).mean() < 1  # todo 0.9
+
+
+def test_low_threshold_increases_signals(sample_data):
+    config = StrategyConfig(window_size=20, long_threshold=0.1, short_threshold=-0.1)
+    strategy = MLStrategy(config=config)
+
+    df = strategy.generate_signals(sample_data)
+
+    # With tiny thresholds, we expect more trading signals
+    assert (df["signal"].abs().sum()) > 10

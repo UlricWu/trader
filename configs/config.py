@@ -33,6 +33,14 @@ class Staging(Production):
 
 
 # schema_config.py
+# !config.py
+
+from dataclasses import dataclass
 
 
-
+@dataclass
+class StrategyConfig:
+    window_size: int = 100  # rolling window size for training
+    long_threshold: float = 0.01  # signal threshold to go long
+    short_threshold: float = -0.01  # signal threshold to go short
+    rolling_window: int = 20
