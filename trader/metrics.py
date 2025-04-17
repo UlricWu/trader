@@ -4,6 +4,8 @@
 # @Project : trader
 # @Author  : wsw
 # @Time    : 2025/3/12 14:27
+from typing import List
+
 import numpy as np
 import pandas as pd
 
@@ -14,6 +16,17 @@ class PerformanceAnalyzer:
     days = 252
     risk_free_rate = 0.02
 
+    # define your default metric list (public names)
+    DEFAULT_METRICS = [
+        "total_return",
+        "annualized_return",
+        "volatility",
+        "sharpe_ratio",
+        "max_drawdown",
+        "win_rate",
+        "profit_factor"
+    ]
+
     def __init__(self, portfolio: "Portfolio", benchmark: pd.Series = None):
         """
         Parameters:
@@ -22,48 +35,45 @@ class PerformanceAnalyzer:
         self.portfolio = portfolio
         self.benchmark = benchmark
 
-    def summary(self):
-        """Calls all stat functions and returns a DataFrame."""
-        # stat_properties = [
-        #     "start_date",
-        #     "end_date",
-        #     "period",
-        #     # "start_value",
-        #     # "end_value",
-        #     # "equity_curve",
-        #     "avg_return_d",
-        #     # "avg_return",
-        #     # "log_return",
-        #     "sharpe_ratio",
-        #     "max_drawdown"
-        # ]
+    def summary(self, metrics: List[str] = None) -> pd.DataFrame:
+        """
+        Compute all requested metrics for each symbol and return a DataFrame.
 
+        :param metrics: list of metric names; must match one of the public
+                        methods on this class.  If None, uses DEFAULT_METRICS.
+        """
+        metrics = metrics or self.DEFAULT_METRICS
         results = []
         for symbol, group in self.portfolio.equity_curve.groupby("symbol"):
             values = group["price"]
             returns = self.calculate_returns(values)
-            total_return = self.total_return(returns)
-            volatility = self.calculate_volatility(returns)
-            sharpe_ratio = self.calculate_sharpe_ratio(returns)
-            max_drawdown = self.calculate_max_drawdown(values)
-            win_rate = self.win_rate(returns)
-            profit_factor = self.profit_factor(returns)
 
-            # Execute properties and collect results
-            result = {
-                "symbol": symbol,
-                "total_return": total_return,
-                "volatility": volatility,
-                "sharpe_ratio": sharpe_ratio,
-                "max_drawdown": max_drawdown,
-                "win_rate": win_rate,
-                "profit_factor": profit_factor
-            }
-            results.append(result)
+            start_day = group["date"].head(1).values[0]
+            end_day = group["date"].tail(1).values[0]
+            row = {"symbol": symbol,
+                   "start_day": start_day,
+                   "end_date": end_day,
+                   "period": end_day - start_day,
+                   "start_value": values.head(1).values[0],
+                   "end_value": values.tail(1).values[0]
+
+                   }
+            for m in metrics:
+                if not hasattr(self, m):
+                    raise ValueError(f"Metric '{m}' not found on PerformanceAnalyzer")
+                func = getattr(self, m)
+                # choose argument based on signature
+                if m == "max_drawdown":
+                    row[m] = func(values)
+                else:
+                    row[m] = func(returns)
+
+            results.append(row)
 
         # Convert results into a Pandas DataFrame
-        return pd.DataFrame(results)
+        return pd.DataFrame(results).set_index("symbol")
 
+    # --- public wrappers around your static calculations ---
     def total_return(self, returns: pd.DataFrame) -> float:
         """Overall % change over the period"""
         return (1 + returns).prod() - 1
@@ -96,9 +106,11 @@ class PerformanceAnalyzer:
         """
         return returns.mean()
 
-    # def _annualized_return(self) -> float:
-    #     n_days = (self.equity_curve.index[-1] - self.equity_curve.index[0]).days
-    #     return (self.equity_curve.iloc[-1] / self.equity_curve.iloc[0]) ** (252 / n_days) - 1
+    def annualized_return(self, returns: pd.DataFrame) -> float:
+        total_ret = self.total_return(returns)
+        periods = len(returns.dropna())
+        # assume daily returns; 252 trading days
+        return (1 + total_ret) ** (self.days / periods) - 1
 
     @staticmethod
     def max_drawdown(equity_curve: pd.Series) -> float:
@@ -109,25 +121,20 @@ class PerformanceAnalyzer:
         drawdowns = (equity_curve - cumulative_max) / cumulative_max
         return drawdowns.min()
 
-    def calculate_volatility(self, returns: pd.Series, day=None) -> float:
+    def volatility(self, returns: pd.Series, day=None) -> float:
         if not day:
             day = self.days
         return returns.std() * np.sqrt(day)
 
-    def calculate_sharpe_ratio(self, returns: pd.Series, risk_free_rate: float = None, days: float = None) -> float:
+    def sharpe_ratio(self, returns: pd.Series, risk_free_rate: float = None, days: float = None) -> float:
         if not risk_free_rate:
             risk_free_rate = self.risk_free_rate
         if not days:
             days = self.days
         excess_returns = returns - risk_free_rate / days
 
-        volatility = self.calculate_volatility(returns)
+        volatility = self.volatility(returns)
         return excess_returns.mean() / volatility if volatility != 0 else np.nan
-
-    def calculate_max_drawdown(self, values: pd.Series) -> float:
-        cumulative = values.cummax()
-        drawdown = (values - cumulative) / cumulative
-        return drawdown.min()
 
     def win_rate(self, returns) -> float:
         wins = (returns > 0).sum()
@@ -138,25 +145,3 @@ class PerformanceAnalyzer:
         gross_profit = returns[returns > 0].sum()
         gross_loss = -returns[returns < 0].sum()
         return gross_profit / gross_loss if gross_loss > 0 else np.nan
-
-    # def start_date(self):
-    #     # return self.trades['trade_date'].head(1).iloc[0]
-    #     return self.history[0].timestamp
-    # # #
-    # # @property
-    # # def end_date(self):
-    # #     return self.history[-1].timestamp
-    # #
-    # # @property
-    # # def period(self):
-    # #
-    # #     return (self.end_date - self.start_date).days
-    # #
-    # # @property
-    # # def start_value(self):
-    # #     # return self.trades['close'].head(1).iloc[0]
-    # #     return self.history[0].value
-    # #
-    # # @property
-    # # def end_value(self):
-    # #     return self.history[-1].value
