@@ -186,22 +186,48 @@ class Portfolio:
         """ Perform a mark-to-market update on portfolio. """
         value = self.cash + self.market_value(prices)
 
-        # Add mark-to-market as a separate event in history
-        mtm_event = TransactionHistory(
-            timestamp=timestamp,
-            symbol="MTM",
-            quantity=0,
-            value=value,
-            transaction_type="mtm"
-        )
-        self.history.append(mtm_event)
+        # # Add mark-to-market as a separate event in history
+        # mtm_event = TransactionHistory(
+        #     timestamp=timestamp,
+        #     symbol="MTM",
+        #     quantity=0,
+        #     value=value,
+        #     transaction_type="mtm"
+        # )
+        # self.history.append(mtm_event)
 
         # After mark-to-market, take a snapshot of the portfolio
         self.take_snapshot()
 
     @property
-    def equity_curve(self) -> List[float]:
-        return [snap.total_value for snap in self.snapshots]
+    def equity_curve(self) -> pd.DataFrame:
+        """
+        Return a pandas Series of portfolio equity over time, indexed by timestamp.
+        Equity is calculated at each fill event as:
+            cash + sum(position.quantity * position.avg_price)
+        """
+        # if not self.history:
+        #     return pd.DataFrame(dtype=float)
+
+        """
+        Export transactions to a pandas DataFrame.
+
+        Columns: ['timestamp', 'symbol', 'quantity', 'price']
+        """
+        data = [
+            {
+                'date': t.timestamp,
+                'symbol': t.symbol,
+                'quantity': t.quantity,
+                'price': t.value
+            }
+            for t in self.history
+        ]
+        df = pd.DataFrame(data).sort_values(["symbol", "date"])
+        return df
+
+        # timestamps, values = zip(*self.history)
+        # return pd.Series(data=values, index=pd.to_datetime(timestamps)).sort_index()
 
     @property
     def dates(self) -> List[datetime]:

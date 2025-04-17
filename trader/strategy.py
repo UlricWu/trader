@@ -16,7 +16,10 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from configs.config import StrategyConfig
 
-
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+# disable chained assignments
+pd.options.mode.chained_assignment = None
 class Strategy(ABC):
 
     @abstractmethod
