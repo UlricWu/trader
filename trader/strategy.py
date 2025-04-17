@@ -4,24 +4,7 @@
 # # @Project : trader
 # # @Author  : wsw
 # # @Time    : 2025/3/12 14:26
-# import pandas as pd
-# import numpy as np
-#
-# from sklearn.ensemble import RandomForestClassifier
-# import pandas as pd
-#
-# from abc import ABC, abstractmethod
-# from typing import List
-# import pandas as pd
-#
-# from typing import Protocol, List
-# import pandas as pd
-# from datetime import datetime
-# from sklearn.ensemble import RandomForestClassifier
-# from sklearn.model_selection import train_test_split
-# from sklearn.metrics import accuracy_score
-#
-#
+
 
 from __future__ import annotations
 
@@ -31,7 +14,6 @@ from typing import Dict
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
-
 from configs.config import StrategyConfig
 
 
@@ -100,28 +82,28 @@ class MLStrategy:
         """
         Generate features for the ML model.
         """
+
         df['return'] = df['close'].pct_change().fillna(0)
         df['moving_avg'] = df['close'].rolling(window=20).mean().fillna(method="bfill")
         df['volatility'] = df['return'].rolling(window=20).std().fillna(method="bfill")
 
-        df["target"] = df["close"].shift(-1) / df["close"] - 1
-        # group = group.dropna(subset=["target"])
+        df["future_return"] = df["close"].shift(-1) / df["close"] - 1
+        df["target"] = df["future_return"].apply(lambda r: 1 if r > 0 else -1)
+        # drop the last row of each symbol (NaN return)
+        # df.dropna(subset=["target"]).reset_index(drop=True)
+        return df
 
         # df["sma_5"] = df["close"].rolling(5).mean().fillna(method="bfill")
         # df["sma_10"] = df["close"].rolling(10).mean().fillna(method="bfill")
         #
-        # df["feature1"] = df["return"]
         # df["feature2"] = df["sma_5"] / df["sma_10"] - 1
         # df["feature3"] = df["close"].diff().fillna(0)
-
-        return df
 
     def train(self, df: pd.DataFrame, symbol: str) -> None:
         df = self.generate_features(df)
         X = df[self.features]
-        # y = df[self.target].values.ravel()
 
-        y = df["target"].apply(lambda x: 1 if x > 0.01 else (-1 if x < -0.01 else 0))
+        y = df["target"]
 
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X)
@@ -141,14 +123,30 @@ class MLStrategy:
         """Return the prediction (buy, sell, hold) for a given symbol."""
         prob = self.predict(row, symbol)
 
+        # assume classes_ == [-1, 1] or [0,1] — find index of “up”:
+        # up_idx = list(self.models[symbol].classes_).index(1)
+        # p_up = prob[up_idx]
+        # p_down = 1 - p_up
+        #
+        # if p_up >= self.config.long_threshold:
+        #     return 1
+        # elif p_down >= self.config.short_threshold:
+        #     return -1
+        # else:
+        #     return 0
+
+        return self.generate_prob(prob[0])
+
+    #
+    def generate_prob(self, prob):
         if prob > self.config.long_threshold:
             return 1  # Buy
         if prob < self.config.short_threshold:
             return -1
-        return 0  # Do nothing (neutral) Hold
+        return 0  # Do nothing (neutral) Hold or Assign a default “hold” label for the last row with NAN
 
-    def generate_signals(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df.copy()
+    def generate_signals(self, data: pd.DataFrame) -> pd.DataFrame:
+        df = data.copy()
         df["signal"] = 0
 
         for symbol, group in df.groupby("symbol"):

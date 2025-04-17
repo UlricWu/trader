@@ -4,32 +4,10 @@
 # @Project : trader
 # @Author  : wsw
 # @Time    : 2025/3/12 14:27
-import sys
 
-import numpy as np
 import pandas as pd
-from dataclasses import dataclass, field
-from typing import Dict, List
 
 from trader.portfolio import Portfolio
-
-
-class PositionSizer:
-    def __init__(self, risk_percentage: float = 0.01):
-        """Set the risk percentage of equity per trade."""
-        self.risk_percentage = risk_percentage
-
-    def calculate(self, df: pd.DataFrame, symbol: str, equity: float) -> int:
-        """Calculate the number of shares to buy based on equity and the current price."""
-        price = df.iloc[-1]["close"]
-        position_size = int((equity * self.risk_percentage) // price)  # Allocate a fixed percentage of equity
-        return position_size
-
-    # !quant_trading_system/performance/analyzer.py
-
-    from typing import List, Dict
-    import numpy as np
-    import pandas as pd
 
 
 class PerformanceAnalyzer:

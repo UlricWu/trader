@@ -14,7 +14,9 @@ from typing import List
 
 
 class BacktestEngine:
-    def __init__(self, df: pd.DataFrame, strategy, symbols: List[str], initial_cash: float = 10000,
+    def __init__(self, df: pd.DataFrame,
+                 strategy, symbols: List[str],
+                 initial_cash: float = 10000,
                  slippage: float = 0.001,
                  commission: float = 0.001):
         self.df = df.sort_values(by='date').copy()
@@ -44,21 +46,15 @@ class BacktestEngine:
                     continue
 
                 quantity = signal * 100
-                fill = Fill(symbol=symbol, quantity=quantity, price=price, date=date)
 
-                # Add slippage as a percentage or fixed value
-                #         # execution_price = close * (1 + slippage_pct)
+                # execution_price = close * (1 + slippage_pct)
                 #         # price += self.commission * price * signal
                 #         # size = self.strategy.sizing(history, symbol, equity)
-                #
-                #         price = self.df.loc[(self.df['date'] == date) & (self.df['symbol'] == symbol)]['close']
-                #         size = 100
-                #
-                #         fills.append(Fill(symbol=symbol, quantity=size, price=price, date=date))
-                #         prices[symbol] = price
-                self.portfolio.update_position(fill)
                 prices[symbol] = price
 
+                fill = Fill(symbol=symbol, quantity=quantity, price=price, date=date)
+
+                self.portfolio.update_position(fill)
                 self.portfolio.mark_to_market(prices, date)
 
     def current_value(self) -> float:
