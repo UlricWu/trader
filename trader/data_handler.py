@@ -28,9 +28,6 @@ class DailyBarDataHandler:
             datetime=row["date"],
             symbol=self.symbol,
             price=row["close"],
-            # type=EventType.MARKET
         )
         self.events.put(event)
         self.current_idx += 1
-
-
