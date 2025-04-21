@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from trader.events import EventType
 from trader.portfolio import Portfolio
 from trader.strategy import Strategy
-from trader.execution import SimulatedExecutionHandler
+from trader.execution import ExecutionHandler
 from trader.data_handler import DailyBarDataHandler
 
 from utilts.logs import logs
@@ -17,7 +17,7 @@ class Backtest:
 
         # Strategy, Execution Handler, and Portfolio
         self.strategy = Strategy(self.events)
-        self.execution_handler = SimulatedExecutionHandler(self.events)
+        self.execution_handler = ExecutionHandler(self.events)
         self.portfolio = Portfolio(self.events, initial_cash)
 
     def run(self):

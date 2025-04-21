@@ -4,17 +4,16 @@
 # @Project : trader
 # @Author  : wsw
 # @Time    : 2025/4/21 13:14
-
-
+import pandas as pd
 # tests/conftest.py
 import pytest
 import queue
 from trader.events import EventType, MarketEvent
 from trader.data_handler import DailyBarDataHandler
 from trader.strategy import Strategy
-from trader.execution import SimulatedExecutionHandler
+from trader.execution import ExecutionHandler
 from trader.portfolio import Portfolio
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
 
@@ -24,18 +23,44 @@ def event_queue():
 
 
 @pytest.fixture
-def mock_strategy(event_queue):
+def event_strategy(event_queue):
     return Strategy(events=event_queue)
 
 
 @pytest.fixture
-def mock_execution_handler(event_queue):
-    return SimulatedExecutionHandler(events=event_queue)
+def event_execution_handler(event_queue):
+    return ExecutionHandler(events=event_queue)
 
 
 @pytest.fixture
-def mock_portfolio(event_queue):
+def event_portfolio(event_queue):
     return Portfolio(events=event_queue)
+
+
+@pytest.fixture
+def setup_backtest():
+    # Generate the mock data for testing
+    data = []
+    base_date = datetime(2023, 1, 1)
+    for i in range(5):  # 5 days of data
+        date = base_date + timedelta(days=i)
+        open_price = 100 + i
+        close_price = open_price + 1
+        high_price = close_price + 1
+        low_price = open_price - 1
+        data.append({
+            "date": date.strftime("%Y-%m-%d"),
+            "symbol": "AAPL",
+            "open": open_price,
+            "high": high_price,
+            "low": low_price,
+            "close": close_price
+        })
+
+    mock_data = pd.DataFrame(data)
+
+    mock_data["date"] = pd.to_datetime(mock_data["date"])
+    return mock_data
 
 
 # @pytest.fixture
