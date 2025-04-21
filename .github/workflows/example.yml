@@ -1,20 +1,22 @@
-name: Lint Python Code
+name: Python package
 
 on:
+  push:
+    branches:
+      - dev
   pull_request:
     branches:
       - dev-commission
-  push:
-    branches:
-      - dev-commission
-  workflow_dispatch:
-
 jobs:
-  lint: # The name of the job
+  build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9"]
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-          cache: "pip"
+      - uses: actions/checkout@v3
+      - name: Install Poetry
+        run: pip install -r requirements.txt
+      - name: Test with Pytest
+        run:  python -m pytest
