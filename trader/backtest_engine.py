@@ -1,33 +1,53 @@
 # backtest_engine.py
 from queue import Queue, Empty
 
-from trader.events import EventType
+from matplotlib import pyplot as plt
+
+from .events import EventType, MarketEvent, SignalEvent, FillEvent
+from .portfolio import Portfolio
+from .strategy import Strategy
+from .execution import SimulatedExecutionHandler
+from .data_handler import DailyBarDataHandler
 
 
-class BacktestEngine:
-    def __init__(self, data_handler, strategy, execution_handler, portfolio):
-        self.events = data_handler.events
-        self.data_handler = data_handler
-        self.strategy = strategy
-        self.execution_handler = execution_handler
-        self.portfolio = portfolio
+class Backtest:
+    def __init__(self, data, initial_cash=100000):
+        self.events = Queue()
+        self.data_handler = DailyBarDataHandler(data=data, events=self.events)
+
+        # Strategy, Execution Handler, and Portfolio
+        self.strategy = Strategy(self.events)
+        self.execution_handler = SimulatedExecutionHandler(self.events)
+        self.portfolio = Portfolio(self.events, initial_cash)
 
     def run(self):
+        """Run the backtest loop."""
         while self.data_handler.continue_backtest:
-            self.data_handler.update_market()
+            self.data_handler.stream_next()
 
             while not self.events.empty():
                 event = self.events.get()
 
                 if event.type == EventType.MARKET:
                     self.strategy.on_market(event)
-                    self.portfolio.on_market(event)
+                    self.portfolio.update_price(event.symbol, event.close)
 
                 elif event.type == EventType.SIGNAL:
-                    self.execution_handler.on_signal(event)
+                    self.portfolio.on_signal(event)
 
                 elif event.type == EventType.ORDER:
-                    self.execution_handler.on_order(event, price=self.portfolio.current_price)
+                    # Use close price as market execution price
+                    price = self.portfolio.current_prices.get(event.symbol, 0)
+                    self.execution_handler.execute_order(event, price)
 
                 elif event.type == EventType.FILL:
                     self.portfolio.on_fill(event)
+                else:
+                    print(f"backtest Unknown event type: {type(event)}")
+
+    def plot_equity_curve(self):
+        """Visualize the portfolio equity over time."""
+        equity = [equity for _, equity in self.portfolio.history]
+        plt.plot(equity)
+        plt.title("Equity Curve")
+        plt.show()

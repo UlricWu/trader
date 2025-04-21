@@ -21,51 +21,63 @@ class EventType(str, Enum):
 @dataclass
 class Event:
     type: EventType
+    datetime: datetime
 
 
 @dataclass
 class MarketEvent(Event):
-    datetime: datetime.datetime
     symbol: str
-    price: float
-    type: EventType = field(default=EventType.MARKET, init=False)
+    open: float
+    high: float
+    low: float
+    close: float
 
-
-    # def __post_init__(self):
-    #     self.type = EventType.MARKET
+    def __init__(self, datetime, symbol, open, high, low, close):
+        super().__init__(EventType.MARKET, datetime)
+        self.symbol = symbol
+        self.open = open
+        self.high = high
+        self.low = low
+        self.close = close
 
 
 @dataclass
 class SignalEvent(Event):
-    datetime: datetime.datetime
     symbol: str
     signal_type: str  # "BUY" or "SELL"
-    type: EventType = field(default=EventType.MARKET, init=False)
+    limit_price: float
 
-    # def __post_init__(self):
-    #     self.type = EventType.SIGNAL
+    def __init__(self, symbol, datetime, signal_type):
+        super().__init__(EventType.SIGNAL, datetime)
+        self.symbol = symbol
+        self.signal_type = signal_type
 
 
 @dataclass
 class OrderEvent(Event):
-    datetime: datetime.datetime
     symbol: str
+    order_type: str
     quantity: int
-    direction: str  # "BUY" or "SELL"
-    type: EventType = field(default=EventType.MARKET, init=False)
+    direction: str
 
-    # def __post_init__(self):
-    #     self.type = EventType.ORDER
+    def __init__(self, symbol, order_type, quantity, direction, datetime):
+        super().__init__(EventType.ORDER, datetime)
+        self.symbol = symbol
+        self.order_type = order_type
+        self.quantity = quantity
+        self.direction = direction
 
 
 @dataclass
 class FillEvent(Event):
-    datetime: datetime.datetime
     symbol: str
     quantity: int
     price: float
     direction: str
-    type: EventType = field(default=EventType.MARKET, init=False)
 
-    # def __post_init__(self):
-    #     self.type = EventType.FILL
+    def __init__(self, symbol, price, quantity, direction, datetime):
+        super().__init__(EventType.FILL, datetime)
+        self.symbol = symbol
+        self.price = price
+        self.quantity = quantity
+        self.direction = direction

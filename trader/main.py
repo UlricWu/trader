@@ -29,9 +29,8 @@ if __name__ == "__main__":
     df = db.load_and_normalize_data(df)
 
     events = Queue()
-    symbol = "AAPL"
 
-    data_handler = DailyBarDataHandler(events, df, symbol)
+    data_handler = DailyBarDataHandler(events, df)
     strategy = SMAStrategy(events)
     execution_handler = SimulatedExecutionHandler(events)
     portfolio = Portfolio()

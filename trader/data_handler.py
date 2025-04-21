@@ -1,33 +1,40 @@
 # data_handler.py
 import pandas as pd
-from events import MarketEvent
+from .events import MarketEvent
 import datetime
 
 
 class DailyBarDataHandler:
-    mock_data = pd.DataFrame([
-        {"datetime": datetime.date(2023, 1, 1), "open": 100, "high": 101, "low": 99, "close": 100.5},
-        {"datetime": datetime.date(2023, 1, 2), "open": 100.5, "high": 102, "low": 100, "close": 101},
-        {"datetime": datetime.date(2023, 1, 3), "open": 101, "high": 103, "low": 100, "close": 102},
-    ])
 
-    def __init__(self, events, data: pd.DataFrame, symbol: str):
+    def __init__(self, events, data: pd.DataFrame):
         self.events = events
-        self.data = data if len(data) > 0 else self.mock_data
-        self.symbol = symbol
+        self.data = data
+
+        self.data.sort_values(["date", "symbol"], inplace=True)
+
+        self.symbols = self.data["symbol"].unique().tolist()
+        self.dates = self.data["date"].unique().tolist()
+
         self.current_idx = 0
-        self.continue_backtest = True
 
-    def update_market(self):
-        if self.current_idx >= len(self.data):
-            self.continue_backtest = False
-            return
+    @property
+    def continue_backtest(self):
+        return self.current_idx < len(self.dates)
 
-        row = self.data.iloc[self.current_idx]
-        event = MarketEvent(
-            datetime=row["date"],
-            symbol=self.symbol,
-            price=row["close"],
-        )
-        self.events.put(event)
-        self.current_idx += 1
+    def stream_next(self):
+        if not self.continue_backtest: return
+
+        current_date = self.dates[self.current_idx]
+        daily_data = self.data[self.data["date"] == current_date]
+        for _, row in daily_data.iterrows():
+            event = MarketEvent(
+                datetime=row["date"],
+                symbol=row["symbol"],
+                open=row["open"],
+                high=row["high"],
+                low=row["low"],
+                close=row["close"]
+            )
+            self.events.put(event)
+
+        self.current_idx += 1  # only track the days
