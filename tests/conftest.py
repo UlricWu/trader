@@ -38,6 +38,14 @@ def event_portfolio(event_queue):
 
 
 @pytest.fixture
+def Commission_portfolio_with_mock_events():
+    events = MagicMock()
+    portfolio = Portfolio(events=events, Commission=True)
+    portfolio.current_prices = {'AAPL': 100}  # Set mock price
+    return portfolio, events
+
+
+@pytest.fixture
 def setup_backtest():
     # Generate the mock data for testing
     data = []
