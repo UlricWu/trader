@@ -6,10 +6,10 @@ from matplotlib import pyplot as plt
 from trader.events import EventType
 from trader.portfolio import Portfolio
 from trader.strategy import Strategy
-from trader.execution import SimulatedExecutionHandler
+from trader.execution import ExecutionHandler
 from trader.data_handler import DailyBarDataHandler
 
-
+from utilts.logs import logs
 class Backtest:
     def __init__(self, data, initial_cash=100000):
         self.events = Queue()
@@ -17,7 +17,7 @@ class Backtest:
 
         # Strategy, Execution Handler, and Portfolio
         self.strategy = Strategy(self.events)
-        self.execution_handler = SimulatedExecutionHandler(self.events)
+        self.execution_handler = ExecutionHandler(self.events)
         self.portfolio = Portfolio(self.events, initial_cash)
 
     def run(self):
@@ -43,7 +43,8 @@ class Backtest:
                 elif event.type == EventType.FILL:
                     self.portfolio.on_fill(event)
                 else:
-                    print(f"backtest Unknown event type: {type(event)}")
+                    message = f"backtest Unknown event type: {type(event)}"
+                    logs.record_log(message, 3)
 
         for date, equity in self.portfolio.history:
             print(date, equity)

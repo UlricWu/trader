@@ -59,14 +59,19 @@ class OrderEvent(Event):
     order_type: str
     quantity: int
     direction: str
+    limit_price: float = None  # Optional
 
-    def __init__(self, symbol, order_type, quantity, direction, datetime):
+    def __init__(self, symbol, order_type, quantity, direction, datetime,  limit_price=None):
         super().__init__(EventType.ORDER, datetime)
         self.symbol = symbol
         self.order_type = order_type
         self.quantity = quantity
         self.direction = direction
+        self.limit_price = limit_price
 
+    # def __str__(self):
+    #     return f'datetime={self.datetime} symbol={self.symbol} order_type={self} quantity={self.quantity} direction={self.direction} '
+    #
 
 @dataclass
 class FillEvent(Event):
@@ -81,3 +86,14 @@ class FillEvent(Event):
         self.price = price
         self.quantity = quantity
         self.direction = direction
+
+    # def __str__(self):
+    #     """Returns a string containing only the non-default field values."""
+    #     s = ', '.join(f'{field.name}={getattr(self, field.name)!r}'
+    #                   for field in dataclasses.fields(self)
+    #                   if getattr(self, field.name) != field.default)
+    #
+    #     return f'{type(self).__name__}({s})'
+    #
+    # def __str__(self):
+    #     return f'datetime={self.datetime} symbol={self.symbol} order_type={self} quantity={self.quantity} direction={self.direction} '
