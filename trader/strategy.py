@@ -3,8 +3,7 @@ from trader.events import SignalEvent, EventType
 from collections import defaultdict
 
 
-# class SMAStrategy:
-# class SimpleStrategy:
+from utilts.logs import logs
 class Strategy(object):
     slippage = 0.01
 
@@ -16,7 +15,7 @@ class Strategy(object):
 
     def on_market(self, event):
         if event.type != EventType.MARKET:
-            print(f"Skipping {event}")
+            logs.record_log(f"Skipping {event}", 3)
             return
 
         # Update the price history for each symbol
@@ -24,16 +23,17 @@ class Strategy(object):
 
         if len(self.prices[event.symbol]) < self.window:
             # a guard clause that ensures enough data exists before making a decision.
-            print(f"Skipping {event} because there are price {self.prices} less than {self.window}")
+            logs.record_log(f"Skipping {event} because there are price {self.prices} less than {self.window}", 2)
             return
 
         avg = sum(self.prices[event.symbol][-self.window:]) / self.window
         if event.close > avg:
             # limit_price = event.close * (1 + self.slippage)  # Buy 1% above the close price
             self.events.put(SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type="BUY"))
-            print(f"Buying {event}")
+            logs.record_log(f"Buying {event}")
         elif event.close < avg:
             # limit_price = event.close * (1 - self.slippage)  # Sell 1% below the close price
             self.events.put(SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type="SELL"))
+            logs.record_log(f"Selling {event}")
         # else:
         #     print(f"Skipping {event} because error")

@@ -6,6 +6,8 @@ import pandas as pd
 from collections import defaultdict
 from trader.events import OrderEvent, FillEvent, EventType, SignalEvent
 
+from utilts.logs import logs
+
 
 class Portfolio:
     def __init__(self, events, initial_cash=100000):
@@ -31,26 +33,31 @@ class Portfolio:
 
     def on_signal(self, signal: SignalEvent):
         quantity = 10
-        price = self.current_prices.get(signal.symbol, 0)
+        signal_symbol = signal.symbol
+        price = self.current_prices.get(signal_symbol, 0)
 
         # Handle BUY or SELL signals with LIMIT price logic
 
-        if signal.signal_type == "BUY":
+        signal_type = signal.signal_type
+        if signal_type == "BUY":
             if self.cash < price * quantity:
-                print("ERROR BUY SIGNAL {} fail at {}".format(signal.symbol, quantity))
+                message = f"SIGNAL={signal_type}  fail at  {quantity} because of cash {self.cash} < {price * quantity}"
+                logs.record_log(message=message, level=3)
                 return
 
-            self.events.put(OrderEvent(symbol=signal.symbol, order_type="MKT", quantity=quantity, direction="BUY",
+            self.events.put(OrderEvent(symbol=signal_symbol, order_type="MKT", quantity=quantity, direction="BUY",
                                        datetime=signal.datetime))
 
-        elif signal.signal_type == "SELL":
-            if self.holdings[signal.symbol] < quantity:
-                print("ERROR SELL SIGNAL {} fail at {}".format(signal.symbol, quantity))
+        elif signal_type == "SELL":
+            if self.holdings[signal_symbol] < quantity:
+                message = f"SIGNAL={signal_type} {signal_symbol} fail at quantity={quantity} because of not enough holdings {self.holdings}"
+                logs.record_log(message=message, level=3)
                 return
-            self.events.put(OrderEvent(signal.symbol, "MKT", quantity, "SELL", signal.datetime))
+            self.events.put(OrderEvent(signal_symbol, "MKT", quantity, "SELL", signal.datetime))
 
         else:
-            print(f"Unknown signal type: {signal.signal_type} for {signal.symbol} at {signal.datetime} {self.stats} ")
+            message = f"Unknown signal type: {signal_type} for {signal_symbol} at {signal.datetime} {self.stats} "
+            logs.record_log(message=message, level=3)
 
     def on_fill(self, fill):
         cost = fill.price * fill.quantity

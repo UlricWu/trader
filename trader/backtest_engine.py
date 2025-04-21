@@ -9,7 +9,7 @@ from trader.strategy import Strategy
 from trader.execution import SimulatedExecutionHandler
 from trader.data_handler import DailyBarDataHandler
 
-
+from utilts.logs import logs
 class Backtest:
     def __init__(self, data, initial_cash=100000):
         self.events = Queue()
@@ -43,7 +43,8 @@ class Backtest:
                 elif event.type == EventType.FILL:
                     self.portfolio.on_fill(event)
                 else:
-                    print(f"backtest Unknown event type: {type(event)}")
+                    message = f"backtest Unknown event type: {type(event)}"
+                    logs.record_log(message, 3)
 
         for date, equity in self.portfolio.history:
             print(date, equity)

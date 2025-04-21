@@ -18,8 +18,8 @@ def test_execution_handler(event_queue, mock_execution_handler):
     assert fill.symbol == "AAPL"
     assert fill.price == 100.0
 
-def test_execution_handler_generates_fill_with_real_queue(event_queue, mock_execution_handler):
 
+def test_execution_handler_generates_fill_with_real_queue(event_queue, mock_execution_handler):
     order = OrderEvent(
         symbol="AAPL",
         order_type="MKT",
@@ -37,3 +37,4 @@ def test_execution_handler_generates_fill_with_real_queue(event_queue, mock_exec
     assert event.symbol == "AAPL"
     assert event.direction == "BUY"
     assert event.price == 100.0
+

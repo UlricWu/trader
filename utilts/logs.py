@@ -77,8 +77,9 @@ class Logging:
         elif level == '3':
             logger.error(message, *args, **kwargs)
             current_dateTime = datetime.now()
-            print(f"{self.RED} {current_dateTime} error={message}")
-            # print(message)
+            p = f"{self.GREEN} {current_dateTime}  {self.RED} ERROR={message} {self.RESET}"
+            print(p)
+
         elif level == '0':
             logger.debug(message, *args, **kwargs)
 
