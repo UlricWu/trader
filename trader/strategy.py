@@ -1,5 +1,5 @@
 # strategy.py
-from .events import SignalEvent, EventType
+from trader.events import SignalEvent, EventType
 from collections import defaultdict
 
 

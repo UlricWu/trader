@@ -7,14 +7,7 @@
 
 # main.py
 import pandas as pd
-from queue import Queue
-
-from events import *
-from data_handler import DailyBarDataHandler
-from strategy import SMAStrategy
-from execution import SimulatedExecutionHandler
-from portfolio import Portfolio
-from backtest_engine import BacktestEngine
+from backtest_engine import Backtest
 
 if __name__ == "__main__":
     # df = pd.read_csv("your_data.csv")  # Must contain date + close columns
@@ -28,15 +21,5 @@ if __name__ == "__main__":
     df = db.extract_table(day="20250205", start_day='20240601', ts_code=[code])
     df = db.load_and_normalize_data(df)
 
-    events = Queue()
-
-    data_handler = DailyBarDataHandler(events, df)
-    strategy = SMAStrategy(events)
-    execution_handler = SimulatedExecutionHandler(events)
-    portfolio = Portfolio()
-
-    engine = BacktestEngine(data_handler, strategy, execution_handler, portfolio)
+    engine = Backtest(data=df)
     engine.run()
-
-    for date, equity in portfolio.history:
-        print(date, equity)

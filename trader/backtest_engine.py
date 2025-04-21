@@ -3,11 +3,11 @@ from queue import Queue, Empty
 
 from matplotlib import pyplot as plt
 
-from .events import EventType, MarketEvent, SignalEvent, FillEvent
-from .portfolio import Portfolio
-from .strategy import Strategy
-from .execution import SimulatedExecutionHandler
-from .data_handler import DailyBarDataHandler
+from trader.events import EventType
+from trader.portfolio import Portfolio
+from trader.strategy import Strategy
+from trader.execution import SimulatedExecutionHandler
+from trader.data_handler import DailyBarDataHandler
 
 
 class Backtest:
@@ -44,6 +44,9 @@ class Backtest:
                     self.portfolio.on_fill(event)
                 else:
                     print(f"backtest Unknown event type: {type(event)}")
+
+        for date, equity in self.portfolio.history:
+            print(date, equity)
 
     def plot_equity_curve(self):
         """Visualize the portfolio equity over time."""

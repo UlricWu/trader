@@ -1,6 +1,6 @@
 # data_handler.py
 import pandas as pd
-from .events import MarketEvent
+from trader.events import MarketEvent
 import datetime
 
 

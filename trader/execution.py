@@ -1,7 +1,7 @@
 # execution.py
 import pandas as pd
 
-from .events import OrderEvent, FillEvent, EventType
+from trader.events import FillEvent, EventType
 
 
 class ExecutionHandler:
@@ -34,3 +34,4 @@ class SimulatedExecutionHandler(ExecutionHandler):
         elif order.order_type == "MKT":
             # Market orders are always executed at the current price
             super().execute_order(order, price)
+            print(f"Order for {order.symbol} ")
