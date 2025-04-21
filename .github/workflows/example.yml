@@ -1,22 +1,21 @@
-name: Python package
-
-on:
-  push:
-    branches:
-      - dev
-  pull_request:
-    branches:
-      - dev-commission
+name: testing
+on: [push,pull_request]
+run-name: running tests for searchenginepy
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.9"]
-
     steps:
       - uses: actions/checkout@v3
-      - name: Install Poetry
-        run: pip install -r requirements.txt
-      - name: Test with Pytest
-        run:  python -m pytest
+      - name: setup python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10' # install the python version needed
+
+      - name: Install dependencies
+        uses: py-actions/py-dependency-install@v4
+        with:
+              path: "requirements.txt"
+
+      - name: run tests # run main.py
+        working-directory: tests
+        run: python -m pytest .
