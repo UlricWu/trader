@@ -4,11 +4,13 @@
 # @Project : trader
 # @Author  : wsw
 # @Time    : 2025/4/21 12:23
+import pytest
 
 from trader.events import FillEvent, SignalEvent, OrderEvent
 from trader.portfolio import Portfolio
 from queue import Queue
 from datetime import datetime
+
 
 def test_portfolio_on_fill_and_equity(event_queue):
     portfolio = Portfolio(events=event_queue, initial_cash=10000)
@@ -36,6 +38,7 @@ def test_portfolio_stats(event_queue):
     assert "current_prices" in stats
     assert "equity" in stats
 
+
 def test_portfolio_buy_and_sell(event_queue):
     p = Portfolio(event_queue, initial_cash=1000)
 
@@ -52,7 +55,7 @@ def test_portfolio_buy_and_sell(event_queue):
     p.on_fill(fill)
 
     assert p.holdings["AAPL"] == 10
-    assert p.cash == 1000 - 10*10
+    assert p.cash == 1000 - 10 * 10
 
     # Sell
     signal = SignalEvent("AAPL", datetime(2023, 1, 2), "SELL")
@@ -126,3 +129,26 @@ def test_sell_with_stamp_duty_and_transfer_fee(Commission_portfolio_with_mock_ev
     assert portfolio.cash == 100000 + (100 * 10 - expected_commission)
     assert portfolio.holdings['AAPL'] == 0  # Ensure holding quantity is now 0
 
+
+def test_on_fill_buy_commission_applied(Commission_portfolio_with_mock_events):
+    portfolio, events = Commission_portfolio_with_mock_events
+    fill = FillEvent(symbol="AAPL", price=100, quantity=10, direction="BUY", datetime="2025-04-22")
+    portfolio.on_fill(fill)
+    expected_commission = max(1000 * 0.0003, 5.0)
+    assert pytest.approx(portfolio.cash, 0.01) == 100000 - 1000 - expected_commission
+    assert portfolio.holdings["AAPL"] == 10
+
+def test_on_fill_sell_commission_stamp_transfer_applied(Commission_portfolio_with_mock_events):
+    portfolio, events = Commission_portfolio_with_mock_events
+    portfolio.holdings["AAPL"] = 10
+    fill = FillEvent(symbol="AAPL", price=100, quantity=10, direction="SELL", datetime="2025-04-22")
+    portfolio.on_fill(fill)
+
+    gross_proceeds = 1000
+    commission = max(gross_proceeds * 0.0003, 5.0)
+    stamp = gross_proceeds * 0.001
+    transfer = gross_proceeds * 0.00001
+    net_proceeds = gross_proceeds - commission - stamp - transfer
+
+    assert pytest.approx(portfolio.cash, 0.01) == 100000 + net_proceeds
+    assert portfolio.holdings["AAPL"] == 0
