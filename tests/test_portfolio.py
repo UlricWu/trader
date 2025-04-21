@@ -79,3 +79,50 @@ def test_portfolio_buy_without_enough_cash(event_queue):
     portfolio.on_signal(signal)
     assert event_queue.empty()  # No order due to insufficient cash
 
+
+def test_buy_commission(Commission_portfolio_with_mock_events):
+    portfolio, events = Commission_portfolio_with_mock_events
+    buy_order = FillEvent(symbol='AAPL', price=100, quantity=10, direction="BUY", datetime='2025-04-22')
+
+    # Apply buy fill
+    portfolio.on_fill(buy_order)
+
+    expected_commission = portfolio.calculate_buy_commission(100 * 10)
+
+    assert portfolio.cash == 100000 - (100 * 10 + expected_commission)
+    assert portfolio.holdings['AAPL'] == 10  # Check that the holding quantity increased
+
+
+def test_sell_commission(Commission_portfolio_with_mock_events):
+    portfolio, events = Commission_portfolio_with_mock_events
+    sell_order = FillEvent(symbol='AAPL', price=100, quantity=10, direction="SELL", datetime='2025-04-22')
+
+    # Add initial holdings to be able to sell
+    portfolio.holdings['AAPL'] = 10
+
+    # Apply sell fill
+    portfolio.on_fill(sell_order)
+
+    expected_commission = portfolio.calculate_sell_commission(100 * 10)
+
+    assert portfolio.cash == 100000 + (100 * 10 - expected_commission)
+    assert portfolio.holdings['AAPL'] == 0  # Check that the holding quantity decreased
+
+
+def test_sell_with_stamp_duty_and_transfer_fee(Commission_portfolio_with_mock_events):
+    portfolio, events = Commission_portfolio_with_mock_events
+    portfolio.holdings['AAPL'] = 10  # Ensure there are holdings to sell
+
+    # This is to test the stamp duty and transfer fee
+    sell_order = FillEvent(symbol='AAPL', price=100, quantity=10, direction="SELL", datetime='2025-04-22')
+
+    # Apply sell fill
+    portfolio.on_fill(sell_order)
+
+    # Calculate expected commission, stamp duty, and transfer fee
+    expected_commission = portfolio.calculate_sell_commission(100 * 10)
+
+    # Check if the sell correctly deducts the commission + fees
+    assert portfolio.cash == 100000 + (100 * 10 - expected_commission)
+    assert portfolio.holdings['AAPL'] == 0  # Ensure holding quantity is now 0
+
