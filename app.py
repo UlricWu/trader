@@ -6,6 +6,7 @@ import os, subprocess, pickle, requests, json
 from flask import Flask, jsonify, request
 
 from datetime import datetime
+from configs import auto_config as cfg
 
 
 def create_app():
@@ -18,7 +19,8 @@ def create_app():
     apps = Flask(__name__)
     logs.record_log("run gunicorn")
     logs.record_log(config['data'])
-    database = config['data']['database']
+    # db = config['data']['database']
+    database = db.Database()
     data = Data(config['data']['token'])
 
     @apps.route('/', methods=['GET'])
@@ -40,7 +42,7 @@ def create_app():
             today = inputs.get('today')
             for table in tables:
                 record = data.get_table(table, today)
-
+                # print(record)
                 db.update_daily(table, record)
             # print(os.path.curdir)
 
@@ -56,8 +58,13 @@ def create_app():
     @logs.catch()
     def extra_daily():
         inputs = json.loads(request.data)  # flask.request
-        logs.record_log(f'inputs = {inputs}')
-        return db.extract_table().head().to_json(orient='records')
+
+        if not inputs:
+            today = "20250305"
+        else:
+            today = inputs['today']
+        logs.record_log(f'inputs = {inputs} with today = {today}')
+        return db.extract_table(day=today).to_json(orient='records')
 
     return apps
 

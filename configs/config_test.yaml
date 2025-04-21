@@ -1,3 +1,19 @@
 data:
-  token: c8cff04e9a0bccdf8edeeac72fd2bcdc275b534420f0cb6d8b6d6f4a
+  token: df20bd171f3ec7b243077a59f857d81688e91d1a22149c63c3b3c38b
   database: tutorial.db
+
+
+train:
+  aug_num: 10000
+  device: cuda
+  epoch_num: 30
+  eval_batch_size: 16
+  gamma: 0.98
+  learning_rate: 1e-6
+  num_works: 2
+  shuffle: true
+  step_size: 1
+  train_batch_size: 16
+
+predict:
+  device: cpu
