@@ -29,8 +29,11 @@ class Strategy(object):
 
         avg = sum(self.prices[event.symbol][-self.window:]) / self.window
         if event.close > avg:
-            limit_price = event.close * (1 + self.slippage)  # Buy 1% above the close price
+            # limit_price = event.close * (1 + self.slippage)  # Buy 1% above the close price
             self.events.put(SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type="BUY"))
+            print(f"Buying {event}")
         elif event.close < avg:
-            limit_price = event.close * (1 - self.slippage)  # Sell 1% below the close price
+            # limit_price = event.close * (1 - self.slippage)  # Sell 1% below the close price
             self.events.put(SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type="SELL"))
+        # else:
+        #     print(f"Skipping {event} because error")

@@ -6,14 +6,23 @@
 # @Time    : 2025/4/16 17:31
 
 import pytest
-from trader.events import MarketEvent, EventType
+from trader.events import MarketEvent, EventType,SignalEvent
 from trader.strategy import Strategy
 from queue import Queue
 from datetime import datetime
 
-def test_strategy_signal_emits_buy():
-    events = Queue()
-    strategy = Strategy(events, window=3)
+def test_simple_strategy_signal_generation(event_queue):
+    strategy = Strategy(events=event_queue, window=3)
+    for price in [100, 101, 102]:
+        event = MarketEvent(datetime=datetime(2023, 1, 1), symbol="AAPL", open=0, high=0, low=0, close=price)
+        strategy.on_market(event)
+    assert not event_queue.empty()
+    signal = event_queue.get()
+    assert isinstance(signal, SignalEvent)
+    assert signal.symbol == "AAPL"
+
+def test_strategy_signal_emits_buy(event_queue):
+    strategy = Strategy(event_queue, window=3)
 
     prices = [100, 101, 102, 110]
     for price in prices:
@@ -21,12 +30,20 @@ def test_strategy_signal_emits_buy():
         strategy.on_market(event)
 
     signals = []
-    while not events.empty():
-        event = events.get()
+    while not event_queue.empty():
+        event = event_queue.get()
         if event.type == EventType.SIGNAL:
             signals.append(event.signal_type)
 
     assert "BUY" in signals
+
+def test_strategy_no_signal_if_not_enough_data(event_queue):
+    strategy = Strategy(events=event_queue, window=5)
+    prices = [100, 101, 102]  # less than window
+    for price in prices:
+        event = MarketEvent(datetime=datetime(2023, 1, 1), symbol="MSFT", open=0, high=0, low=0, close=price)
+        strategy.on_market(event)
+    assert event_queue.empty()
 
 #
 # import pandas as pd
