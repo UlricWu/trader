@@ -1,38 +1,28 @@
-name: Test and Auto-Merge to Dev
+name: Merge on Test Pass
 
 on:
   pull_request:
-    branches:
-      - dev
+    branches: [ "dev" ] # Trigger only on PRs targeting the dev branch
 
 jobs:
-  test:
+  test_and_merge:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
+      - uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-
+          python-version: '3.x'
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-
-      - name: Run tests with pytest
-        run: |
-          pytest
-
-  automerge:
-    needs: test
-    if: ${{ github.event.pull_request.user.login != 'github-actions[bot]' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Auto-merge PR into dev
-        uses: "peter-evans/auto-merge@v3"
+        run: pip install -r requirements.txt
+      - name: Run pytest
+        run: pytest
+      - name: Merge pull request
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && github.ref == 'refs/pull/${{ github.event.pull_request.number }}/merge'
+        uses: octokit/request-action@v2.x
         with:
-          merge-method: squash
+          route: PATCH /repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}
+          mediaType: application/vnd.github.v3+json
+          body: '{"state":"closed"}'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
