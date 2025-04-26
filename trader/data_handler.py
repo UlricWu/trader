@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Dict, List
 from trader.events import MarketEvent
 from utilts.logs import logs
-
+from trader.config import Settings
 
 class DailyBarDataHandler:
     """
@@ -16,7 +16,7 @@ class DailyBarDataHandler:
     Emits MarketEvent per symbol per day.
     """
 
-    def __init__(self, data: pd.DataFrame, events, adjust=False):
+    def __init__(self, data: pd.DataFrame, events, settings: Settings):
         """
         Parameters:
         - data: A pandas DataFrame with columns [date, symbol, open, high, low, close]
@@ -28,7 +28,7 @@ class DailyBarDataHandler:
         self.continue_backtest = True
 
         self._index_iter = self._generate_index_iterator()
-        self._adjust = adjust
+        self.settings = settings
 
     def _generate_index_iterator(self):
         self.symbol_data.sort_values(by=["date", "symbol"], inplace=True)

@@ -17,8 +17,8 @@ def test_market_event(sample_market_event):
     assert sample_market_event.close == 102.0
 
 
-def test_simple_strategy_emits_signal_after_window(mock_event_queue):
-    strategy = Strategy(mock_event_queue, window=3)
+def test_simple_strategy_emits_signal_after_window(mock_event_queue, default_settings):
+    strategy = Strategy(mock_event_queue, settings=default_settings)
 
     # Create 3 market events with increasing prices
     events = [
@@ -39,8 +39,8 @@ def test_simple_strategy_emits_signal_after_window(mock_event_queue):
     assert signal.signal_type == "BUY"
 
 
-def test_execution_handler_puts_fill_event(mock_event_queue):
-    handler = ExecutionHandler(mock_event_queue)
+def test_execution_handler_puts_fill_event(mock_event_queue, default_settings):
+    handler = ExecutionHandler(mock_event_queue, settings=default_settings)
 
     order = OrderEvent("AAPL", "MKT", 10, "BUY", datetime(2024, 1, 1))
     handler.execute_order(order, market_price=150.0)
@@ -50,13 +50,13 @@ def test_execution_handler_puts_fill_event(mock_event_queue):
     fill = args[0]
     assert fill.type == EventType.FILL
     assert fill.symbol == "AAPL"
-    assert fill.price == 150.0
+    assert fill.price == 150.0 * (1 + default_settings.trading.SLIPPAGE)
     assert fill.quantity == 10
     assert fill.direction == "BUY"
 
 
-def test_strategy_generates_signal(mock_event_queue):
-    strategy = Strategy(mock_event_queue, window=2)
+def test_strategy_generates_signal(mock_event_queue, default_settings):
+    strategy = Strategy(mock_event_queue, settings=default_settings)
 
     # Feed two events to trigger a signal
     event1 = MarketEvent(datetime(2024, 1, 1), "AAPL", 100, 101, 99, 100)
@@ -65,4 +65,5 @@ def test_strategy_generates_signal(mock_event_queue):
     strategy.on_market(event1)
     strategy.on_market(event2)
 
-    assert mock_event_queue.put.called
+    # strategy.window > 2 event -> Skipping
+    assert not mock_event_queue.put.called

@@ -16,6 +16,8 @@ from trader.portfolio import Portfolio
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
+from trader.config import load_settings, Settings
+
 
 @pytest.fixture
 def event_queue():
@@ -23,24 +25,30 @@ def event_queue():
 
 
 @pytest.fixture
-def event_strategy(event_queue):
-    return Strategy(events=event_queue)
+def default_settings() -> Settings:
+    default_settings = load_settings()
+    return default_settings
 
 
 @pytest.fixture
-def event_execution_handler(event_queue):
-    return ExecutionHandler(events=event_queue)
+def event_strategy(event_queue, default_settings):
+    return Strategy(events=event_queue, settings=default_settings)
 
 
 @pytest.fixture
-def event_portfolio(event_queue):
-    return Portfolio(events=event_queue)
+def event_execution_handler(event_queue, default_settings):
+    return ExecutionHandler(events=event_queue, settings=default_settings)
 
 
 @pytest.fixture
-def Commission_portfolio_with_mock_events():
+def event_portfolio(event_queue, default_settings):
+    return Portfolio(events=event_queue, settings=default_settings)
+
+
+@pytest.fixture
+def Commission_portfolio_with_mock_events( default_settings):
     events = MagicMock()
-    portfolio = Portfolio(events=events, Commission=True)
+    portfolio = Portfolio(events=events, settings=default_settings)
     portfolio.current_prices = {'AAPL': 100}  # Set mock price
     return portfolio, events
 

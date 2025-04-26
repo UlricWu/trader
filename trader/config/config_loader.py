@@ -5,65 +5,74 @@
 # @Author  : wsw
 # @Time    : 2025/4/26 20:59
 # config_loader.py
-from pydantic import BaseModel
-from pydantic_yaml import parse_yaml_file_as
-from pathlib import Path
-from typing import List
 
 
 # === Settings Models ===
-
-class SystemSettings(BaseModel):
-    api_key: str
-    api_secret: str
-    mode: str  # train, backtest, live
-
-
-class DataSettings(BaseModel):
-    price_adjustment: str  # qfq, hfq, none
+# config_loader.py
+import yaml
+from dataclasses import dataclass, field
+from typing import List, Optional
 
 
-class ModelSettings(BaseModel):
-    save_path: str
-    filename: str
-    auto_save: bool
-    auto_load: bool
+@dataclass
+class DataSettings:
+    data_path: str = "mock_data.csv"
+    symbol_list: List[str] = field(default_factory=lambda: ["MOCK"])
+    price_adjustment: str = "qfq"  # qfq or hfq
 
 
-class TradingSettings(BaseModel):
-    initial_cash: float
-    commission_rate: float
-    slippage: float
-    limit_up_down_buffer: float
-    symbol_list: List[str]
+@dataclass
+class TradingSettings:
+    INITIAL_CASH: float = 100000.0
+    COMMISSION_RATE: float = 0.001  # 0.1%
+
+    SLIPPAGE: float = 0.0005  # 5 bps
+    LIMIT_UP_DOWN_BUFFER: float = 0.01  # 1% buffer
+    SYMBOL_LIST: List[str] = ('000001.SZ', '600519.SH', '300750.SZ')
+    WINDOWS: int = 3
+    RISK_PCT: float = 0.01
 
 
-class CalendarSettings(BaseModel):
-    use_trading_calendar: bool
-    provider: str
-    tushare_token: str
+@dataclass
+class ExecutionSettings:
+    commission_rate: float = 0.001
+    limit_up_pct: float = 0.10
+    limit_down_pct: float = 0.10
 
 
-class DatabaseSettings(BaseModel):
-    db_uri: str
+@dataclass
+class StrategySettings:
+    short_window: int = 5
+    long_window: int = 10
 
 
-class LoggingSettings(BaseModel):
-    debug: bool
+@dataclass
+class MLSettings:
+    model_path: str = "mock_model.pkl"
+    auto_save: bool = False
+    auto_load: bool = False
 
 
-# === Master Settings ===
-
-class Settings(BaseModel):
-    system: SystemSettings
-    data: DataSettings
-    model: ModelSettings
-    trading: TradingSettings
-    calendar: CalendarSettings
-    database: DatabaseSettings
-    logging: LoggingSettings
+@dataclass
+class Settings:
+    data: DataSettings = field(default_factory=DataSettings)
+    trading: TradingSettings = field(default_factory=TradingSettings)
+    execution: ExecutionSettings = field(default_factory=ExecutionSettings)
+    strategy: StrategySettings = field(default_factory=StrategySettings)
+    ml: MLSettings = field(default_factory=MLSettings)
 
 
-def load_settings(config_path: str = "settings.yaml") -> Settings:
-    """Load Settings from YAML"""
-    return parse_yaml_file_as(Settings, Path(config_path))
+def load_settings(yaml_file: Optional[str] = None) -> Settings:
+    if yaml_file:
+        with open(yaml_file, 'r') as f:
+            data = yaml.safe_load(f)
+
+        return Settings(
+            data=DataSettings(**data.get('data', {})),
+            trading=TradingSettings(**data.get('trading', {})),
+            execution=ExecutionSettings(**data.get('execution', {})),
+            strategy=StrategySettings(**data.get('strategy', {})),
+            ml=MLSettings(**data.get('ml', {})),
+        )
+    else:
+        return Settings()

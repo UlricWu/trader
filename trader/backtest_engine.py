@@ -8,21 +8,24 @@ from trader.portfolio import Portfolio
 from trader.strategy import Strategy
 from trader.execution import ExecutionHandler
 from trader.data_handler import DailyBarDataHandler
-
+from trader.config import Settings
 from utilts.logs import logs
 
 
 class Backtest:
-    def __init__(self, data, strategy_cls=Strategy, initial_cash=100000):
+    def __init__(self, data, settings: Settings):
         self.events = Queue()
-        self.data_handler = DailyBarDataHandler(data=data, events=self.events)
+
+        self.data_handler = DailyBarDataHandler(data=data, events=self.events, settings=settings)
+        self.strategy = Strategy(self.events, settings=settings)
+        self.execution_handler = ExecutionHandler(self.events, settings=settings)
+        self.portfolio = Portfolio(self.events, settings=settings)
 
         # Strategy, Execution Handler, and Portfolio
         # self.strategy = get_strategy(self.events)
-        self.strategy = strategy_cls(self.events)  # avoid hardcoding
+        # self.strategy = strategy_cls(self.events)  # avoid hardcoding
         logs.record_log("策略初始化完成")
-        self.execution_handler = ExecutionHandler(self.events)
-        self.portfolio = Portfolio(self.events, initial_cash)
+        # self.portfolio = Portfolio(self.events, initial_cash)
 
     def run(self):
         """Run the backtest loop."""

@@ -1,35 +1,40 @@
 # settings.yaml
-system:
-  api_key: "your_api_key_here"
-  api_secret: "your_api_secret_here"
-  mode: "train"  # train, backtest, live
-
 data:
-  price_adjustment: "qfq"  # hfq, qfq, or none
-
-model:
-  save_path: "models/"
-  filename: "ml_model.pkl"
-  auto_save: true
-  auto_load: true
+  data_path: "my_data.csv"
+  symbol_list: [ "AAPL", "GOOG" ]
+  price_adjustment: "hfq"
 
 trading:
-  initial_cash: 100000.0
+  initial_cash: 100000
   commission_rate: 0.001
   slippage: 0.0005
   limit_up_down_buffer: 0.01
+  risk_pct: 0.01
+
   symbol_list:
     - "000001.SZ"
     - "600519.SH"
-    - "300750.SZ"
 
-calendar:
-  use_trading_calendar: true
-  provider: "tushare"
-  tushare_token: "your-tushare-token"
+execution:
+  commission_rate: 0.0005
+  limit_up_pct: 0.1
+  limit_down_pct: 0.1
+
+strategy:
+  short_window: 10
+  long_window: 30
+
+ml:
+  model_path: "trained_model.pkl"
+
+  auto_save: true
+  auto_load: true
 
 database:
-  db_uri: "127.0.0.1:6001"
+  db_uri: "localhost:6001"
 
-logging:
-  debug: true
+system:
+  api_key: "train_api_key"
+  api_secret: "train_api_secret"
+  mode: "train"
+

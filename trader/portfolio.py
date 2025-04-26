@@ -8,7 +8,7 @@ from trader.events import OrderEvent, FillEvent, EventType, SignalEvent, MarketE
 
 from utilts.logs import logs
 
-
+from trader.config import Settings
 class Portfolio:
     """
     The Portfolio class tracks cash, positions, and market values over time.
@@ -21,10 +21,11 @@ class Portfolio:
     stamp_duty_rate = 0.001  # 0.1% (sell only)
     transfer_fee_rate = 0.00001  # 0.001% (sell only)
 
-    def __init__(self, events, initial_cash=100000, Commission: bool = False, risk_pct=0.01):
+    def __init__(self, events, settings: Settings):
 
         self.events = events
-        self.cash = initial_cash
+        self.settings = settings
+        self.cash = settings.trading.INITIAL_CASH
         self.holdings = defaultdict(int)
         self.current_prices = {}
         self.history = []
@@ -32,8 +33,8 @@ class Portfolio:
         # # positions: symbol -> quantity held
         self.positions: Dict[str, float] = {}
 
-        self.Commission = Commission
-        self.risk_pct = risk_pct
+        self.Commission = settings.trading.COMMISSION_RATE
+        self.risk_pct = settings.trading.RISK_PCT
 
         self.buy_dates = defaultdict(list)  # symbol -> list of buy dates
         self.current_date = None

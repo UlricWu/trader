@@ -4,16 +4,17 @@ import pandas as pd
 from trader.events import SignalEvent, EventType
 from collections import defaultdict
 from utilts.logs import logs
+from trader.config import Settings
 
 
 class Strategy(object):
     slippage = 0.01
 
-    def __init__(self, events, window=3):
+    def __init__(self, events, settings: Settings):
         self.events = events
         self.prices = defaultdict(list)
-
-        self.window = window
+        self.settings = settings
+        self.window = settings.trading.WINDOWS
 
     def on_market(self, event):
         if event.type != EventType.MARKET:
@@ -44,31 +45,29 @@ import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 
 
-class MLStrategy:
-    def __init__(self, events, model: RandomForestClassifier, window_size=5):
-        self.events = events
-        self.model = model
-        self.window_size = window_size
-        self.data = {}
-
-    def on_market(self, event):
-        symbol = event.symbol
-        price = event.data["close"]
-        if symbol not in self.data:
-            self.data[symbol] = []
-        self.data[symbol].append(price)
-
-        if len(self.data[symbol]) >= self.window_size:
-            X = np.array(self.data[symbol][-self.window_size:]).reshape(1, -1)
-            pred = self.model.predict(X)[0]
-            if pred in ("LONG", "SHORT"):
-                signal = SignalEvent(symbol, event.time, pred)
-                self.events.put(signal)
-
+# class MLStrategy:
+#     def __init__(self, events, settings: Settings):
+#         super().__init__(events, settings)
+#
+#     def on_market(self, event):
+#         symbol = event.symbol
+#         price = event.data["close"]
+#         if symbol not in self.data:
+#             self.data[symbol] = []
+#         self.data[symbol].append(price)
+#
+#         if len(self.data[symbol]) >= self.window_size:
+#             X = np.array(self.data[symbol][-self.window_size:]).reshape(1, -1)
+#             pred = self.model.predict(X)[0]
+#             if pred in ("LONG", "SHORT"):
+#                 signal = SignalEvent(symbol, event.time, pred)
+#                 self.events.put(signal)
 
 
 # train_ml_model.py
 from sklearn.ensemble import RandomForestClassifier
+
+
 # from trader.config.config import ADJUSTMENT_TYPE, PriceAdjustmentType
 
 # ADJUSTMENT_TYPE = PriceAdjustmentType.QFQ  # Ensure QFQ is used
@@ -83,7 +82,6 @@ def prepare_features(df: pd.DataFrame, window=5):
         X.append(features)
         y.append(label)
     return np.array(X), np.array(y)
-
 
 # def train_model(data_dict: dict[str, pd.DataFrame], window=5):
 #     all_X, all_y = [], []

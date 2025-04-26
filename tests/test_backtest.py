@@ -10,9 +10,9 @@ import pytest
 from trader.backtest_engine import Backtest
 
 
-def test_backtest_equity(setup_backtest):
+def test_backtest_equity(setup_backtest, default_settings):
     # Run the backtest
-    backtest = Backtest(data=setup_backtest)
+    backtest = Backtest(data=setup_backtest, settings=default_settings)
     # backtest = setup_backtest
     backtest.run()
 

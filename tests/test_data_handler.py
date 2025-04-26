@@ -11,7 +11,7 @@ from queue import Queue
 from trader.events import MarketEvent
 
 
-def test_data_handler_streams_market_events(tmp_path):
+def test_data_handler_streams_market_events(tmp_path, default_settings):
     # Create mock CSV file
     df = pd.DataFrame({
         "date": pd.to_datetime(["2023-01-01", "2023-01-01"]),
@@ -25,7 +25,7 @@ def test_data_handler_streams_market_events(tmp_path):
     # df.to_csv(file, index=False)
 
     events = Queue()
-    handler = DailyBarDataHandler(data=df, events=events)
+    handler = DailyBarDataHandler(data=df, events=events, settings=default_settings)
 
     handler.stream_next()
     assert not events.empty()

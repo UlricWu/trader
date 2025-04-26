@@ -4,6 +4,8 @@ from __future__ import annotations
 from trader.events import FillEvent, EventType, OrderEvent
 from utilts.logs import logs
 
+from trader.config import Settings
+
 
 class ExecutionHandler:
     mapping = {
@@ -11,9 +13,10 @@ class ExecutionHandler:
         "SELL": -1
     }
 
-    def __init__(self, events, slippage=0.0):
+    def __init__(self, events,  settings: Settings):
         self.events = events
-        self.slippage_pct = slippage
+        self.slippage_pct = settings.trading.SLIPPAGE
+        self.settings = settings
 
     def execute_order(self, order_event: OrderEvent, market_price: float, prev_close: float | None = None) -> None:
 
@@ -35,7 +38,7 @@ class ExecutionHandler:
         # price_data: dict with keys: open, high, low, close
         elif order_type == "LIMIT":
             if event_direction == "BUY" and market_price > order_event.limit_price:
-                logs.record_log(f"[LIMIT UP] Blocked BUY: {symbol} at {close}", 2)
+                # logs.record_log(f"[LIMIT UP] Blocked BUY: {symbol} at {close}", 2)
                 return  # Can't execute at worse price
 
             if event_direction == "SELL" and market_price < order_event.limit_price:

@@ -1,7 +1,7 @@
 # from .config import Local, Production, Staging
 import os
 
-from .config_loader import load_settings
+from .config_loader import load_settings, Settings
 # config_space = os.getenv('CONFIG_SPACE', None)
 # if config_space:
 #     if config_space == 'LOCAL':
