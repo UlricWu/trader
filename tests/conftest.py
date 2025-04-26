@@ -46,7 +46,7 @@ def event_portfolio(event_queue, default_settings):
 
 
 @pytest.fixture
-def Commission_portfolio_with_mock_events( default_settings):
+def Commission_portfolio_with_mock_events(default_settings):
     events = MagicMock()
     portfolio = Portfolio(events=events, settings=default_settings)
     portfolio.current_prices = {'AAPL': 100}  # Set mock price
@@ -112,3 +112,18 @@ def mock_event_queue():
         Testing multiple interactions
     """
     return MagicMock()
+
+
+@pytest.fixture
+def sample_data():
+    data = []
+
+    days = 50
+
+    date = pd.date_range(start="2020-01-01", periods=days)
+    for i in range(days):
+        data.append({"date": date[i],
+                     "symbol": "AAPL",
+                     "close": 100 + i * 0.5})
+    df = pd.DataFrame(data)
+    return df

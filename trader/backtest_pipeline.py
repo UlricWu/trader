@@ -24,8 +24,9 @@ def backtest(settings):
     #     symbols=settings.trading.symbol_list
     # )
 
-    bt = Backtest(data, initial_cash=settings.trading.initial_cash)
+    bt = Backtest(data, settings=settings)
     bt.run()
+    print(bt.portfolio.equity_df)
     bt.plot_equity_curve()
 
 

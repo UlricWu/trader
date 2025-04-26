@@ -9,6 +9,8 @@ from trader.events import OrderEvent, FillEvent, EventType, SignalEvent, MarketE
 from utilts.logs import logs
 
 from trader.config import Settings
+
+
 class Portfolio:
     """
     The Portfolio class tracks cash, positions, and market values over time.
@@ -108,7 +110,7 @@ class Portfolio:
 
     @property
     def equity_df(self):
-        return pd.DataFrame(self.history, columns=["date", "equity"]).set_index("datetime")
+        return pd.DataFrame(self.history, columns=["datetime", "equity"]).set_index("datetime")
 
     def get_symbol_returns(self) -> dict:
         """

@@ -46,27 +46,15 @@ def test_strategy_no_signal_if_not_enough_data(event_queue, default_settings):
     assert not event_queue.empty()
 
 #
-# import pandas as pd
-# import numpy as np
+import pandas as pd
+import numpy as np
 # import pytest
 # from trader.strategy import MLStrategy
 #
 # from config.config import StrategyConfig
 #
 #
-# @pytest.fixture
-# def sample_data():
-#     data = []
-#
-#     days = 50
-#
-#     date = pd.date_range(start="2020-01-01", periods=days)
-#     for i in range(days):
-#         data.append({"date": date[i],
-#                      "symbol": "AAPL",
-#                      "close": 100 + i * 0.5})
-#     df = pd.DataFrame(data)
-#     return df
+
 #
 #
 # def test_strategy_signal_generation(sample_data):
@@ -83,7 +71,7 @@ def test_strategy_no_signal_if_not_enough_data(event_queue, default_settings):
 #     # Check first N signals are zero (before training starts)
 #     initial_signals = df["signal"].iloc[:config.window_size]
 #     assert all(initial_signals == 0)
-#
+
 #
 # def test_threshold_effect(sample_data):
 #     # Using high thresholds should produce mostly 0 signals

@@ -90,3 +90,38 @@ def test_limit_order_sell_no_slippage(mock_event_queue, default_settings):
     fill = mock_event_queue.put.call_args[0][0]
     assert fill.price == price
     assert fill.direction == "SELL"
+
+
+# def test_limit_order_fills_when_price_matches(event_execution_handler, mock_event_queue):
+#     # Example daily bar
+#     daily_bar = MarketEvent(
+#         datetime=datetime(2024, 1, 1),
+#         symbol="TEST",
+#         open=100,
+#         high=105,
+#         low=95,
+#         close=102
+#     )
+#
+#     # Create a BUY LIMIT order at price 96, should be filled since low=95
+#     limit_order = OrderEvent(
+#         symbol="TEST",
+#         order_type="LIMIT",
+#         quantity=10,
+#         direction="BUY",
+#         limit_price=96,
+#         datetime=daily_bar.datetime
+#     )
+#
+#     # Simulate limit order execution
+#     event_execution_handler.execute_order(order=limit_order, daily_bar)
+#
+#     # Assert a fill was put into the queue
+#     assert mock_event_queue.put.called
+#     fill_event = mock_event_queue.put.call_args[0][0]
+#     assert fill_event.type == EventType.FILL
+#     assert fill_event.symbol == "TEST"
+#     assert fill_event.fill_price == 96
+#     assert fill_event.quantity == 10
+#     assert fill_event.direction == "BUY"
+
