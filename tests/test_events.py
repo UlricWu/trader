@@ -43,7 +43,7 @@ def test_execution_handler_puts_fill_event(mock_event_queue):
     handler = ExecutionHandler(mock_event_queue)
 
     order = OrderEvent("AAPL", "MKT", 10, "BUY", datetime(2024, 1, 1))
-    handler.execute_order(order, price=150.0)
+    handler.execute_order(order, market_price=150.0)
 
     assert mock_event_queue.put.called
     args, _ = mock_event_queue.put.call_args

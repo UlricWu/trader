@@ -1,0 +1,34 @@
+#!/usr/bin/env python 
+# -*- coding: utf-8 -*-
+# @File    : backtest_pipeline.py
+# @Project : trader
+# @Author  : wsw
+# @Time    : 2025/4/26 20:54
+
+# backtest_pipeline.py
+# backtest_pipeline.py
+from trader.config import load_settings
+from trader.backtest_engine import Backtest
+
+
+def backtest(settings):
+    # 1. Load data from SQLite
+    from data import db
+
+    code = "000001.SZ"
+
+    df = db.extract_table(day="20250205", start_day='20240601', ts_code=[code])
+    data = db.load_and_normalize_data(df)
+    # data = load_data(
+    #     adjustment=settings.data.price_adjustment,
+    #     symbols=settings.trading.symbol_list
+    # )
+
+    bt = Backtest(data, initial_cash=settings.trading.initial_cash)
+    bt.run()
+    bt.plot_equity_curve()
+
+
+if __name__ == "__main__":
+    settings = load_settings()
+    backtest(settings)

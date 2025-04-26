@@ -80,7 +80,7 @@ def update_daily(table, data):
         db.execute(f"drop table if exists {temp_table}")
 
 
-# from configs.config import SchemaConfig
+# from config.config import SchemaConfig
 from pydantic import BaseModel
 from typing import Dict
 
@@ -117,6 +117,7 @@ def load_and_normalize_data(df: pd.DataFrame) -> pd.DataFrame:
     #     schema.vol: "volume",
     # }
     df = df.rename(columns=rename_map)
+    df.sort_values(["date", "symbol"], inplace=True)
     return df
 
 
@@ -153,7 +154,7 @@ def check_table(table_name='daily'):
 
 
 def create_table_daily():
-    file = '/home/wsw/trader/configs/daily.sql'
+    file = '/home/wsw/trader/config/daily.sql'
     with open(file, 'r') as sql_file:
         sql_script = sql_file.read()
     logs.record_log(sql_script)

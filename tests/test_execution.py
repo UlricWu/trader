@@ -12,7 +12,7 @@ from trader.execution import ExecutionHandler
 
 def test_execution_handler(event_queue, event_execution_handler):
     order = OrderEvent(symbol="AAPL", order_type="MKT", quantity=5, direction="BUY", datetime=datetime.now())
-    event_execution_handler.execute_order(order, price=100.0)
+    event_execution_handler.execute_order(order, market_price=100.0)
     assert not event_queue.empty()
     fill = event_queue.get()
     assert isinstance(fill, FillEvent)
@@ -52,7 +52,7 @@ def test_execute_order_with_slippage_sell(mock_event_queue):
     )
     order.type = EventType.ORDER
 
-    execution_handler.execute_order(order, price=150.0)
+    execution_handler.execute_order(order, market_price=150.0)
 
     fill_event = mock_event_queue.put.call_args[0][0]
     assert isinstance(fill_event, FillEvent)
@@ -69,7 +69,7 @@ def test_execution_handler_generates_fill_with_real_queue(event_queue, event_exe
         datetime=datetime(2025, 1, 1)
     )
 
-    event_execution_handler.execute_order(order, price=100.0)
+    event_execution_handler.execute_order(order, market_price=100.0)
 
     # Assert the FillEvent is in the queue
     assert not event_queue.empty()
@@ -86,7 +86,7 @@ def test_limit_order_sell_no_slippage( mock_event_queue):
     order = OrderEvent("AAPL", "LIMIT", 10, "SELL", datetime(2024, 1, 1), price)
     order.type = EventType.ORDER
 
-    mock_execution_handler.execute_order(order, price=price)
+    mock_execution_handler.execute_order(order, market_price=price)
 
     fill = mock_event_queue.put.call_args[0][0]
     assert fill.price == price

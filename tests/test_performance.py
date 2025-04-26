@@ -10,8 +10,11 @@
 # import pandas as pd
 # from trader.metrics import PerformanceAnalyzer
 # from trader.portfolio import Fill, Portfolio
-#
-#
+# def test_no_trades_performance():
+#     from trader.performance import PerformanceAnalyzer
+#     perf = PerformanceAnalyzer()
+#     assert perf.calculate_total_return([]) == 0.0
+#     assert perf.calculate_sharpe_ratio([]) == 0.0
 # @pytest.fixture
 # def sample_fills_portfolio():
 #     portfolio = Portfolio()

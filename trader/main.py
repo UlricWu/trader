@@ -4,10 +4,12 @@
 # @Project : trader
 # @Author  : wsw
 # @Time    : 2025/4/20 22:39
-
+import numpy as np
 # main.py
 import pandas as pd
 from backtest_engine import Backtest
+
+from performance import PerformanceAnalyzer
 
 if __name__ == "__main__":
     # df = pd.read_csv("your_data.csv")  # Must contain date + close columns
@@ -23,3 +25,8 @@ if __name__ == "__main__":
 
     engine = Backtest(data=df)
     engine.run()
+
+    equity_df = engine.portfolio.equity_curve
+    perf = PerformanceAnalyzer(equity_df)
+    perf.summary()
+    perf.plot()

@@ -51,7 +51,7 @@ def test_strategy_no_signal_if_not_enough_data(event_queue):
 # import pytest
 # from trader.strategy import MLStrategy
 #
-# from configs.config import StrategyConfig
+# from config.config import StrategyConfig
 #
 #
 # @pytest.fixture
