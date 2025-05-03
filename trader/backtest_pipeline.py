@@ -9,8 +9,9 @@
 # backtest_pipeline.py
 from trader.config import load_settings
 from trader.backtest_engine import Backtest
-
-
+from trader.performance import PerformanceAnalyzer
+def send_slack_notification(summary: dict):
+    msg = f"Backtest Completed. Return: {summary['total_return']*100:.2f}%"
 def backtest(settings):
     # 1. Load data from SQLite
     from data import db
@@ -26,8 +27,10 @@ def backtest(settings):
 
     bt = Backtest(data, settings=settings)
     bt.run()
-    print(bt.portfolio.equity_df)
-    bt.plot_equity_curve()
+    perf = PerformanceAnalyzer(portfolio=bt.portfolio)
+    print(perf.summary())
+    # print(bt.portfolio.equity_df)
+    # bt.plot_equity_curve()
 
 
 if __name__ == "__main__":

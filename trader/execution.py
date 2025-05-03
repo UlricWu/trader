@@ -13,7 +13,7 @@ class ExecutionHandler:
         "SELL": -1
     }
 
-    def __init__(self, events,  settings: Settings):
+    def __init__(self, events, settings: Settings):
         self.events = events
         self.slippage_pct = settings.trading.SLIPPAGE
         self.settings = settings
@@ -33,6 +33,27 @@ class ExecutionHandler:
         if order_type == "MKT":
             executed_price = self.simulate_slippage(market_price, order_event)
 
+        # if order_event.order_type == "LIMIT":
+        # if order_event.direction == "BUY" and market_event.low <= order_event.limit_price:
+        #     fill_price = min(market_event.close, order_event.limit_price)  # Limit order filled at the limit price
+        #     fill_event = FillEvent(
+        #         symbol=symbol,
+        #         price=fill_price,
+        #         quantity=order_event.quantity,
+        #         direction=order_event.direction,
+        #         datetime=market_event.datetime
+        #     )
+        #     self.events.put(fill_event)
+        #
+        # elif order_event.direction == "SELL" and market_event.high >= order_event.limit_price:
+        #     fill_price = max(market_event.close, order_event.limit_price)  # Limit order filled at the limit price
+        #     fill_event = FillEvent(
+        #         symbol=symbol,
+        #         price=fill_price,
+        #         quantity=order_event.quantity,
+        #         direction=order_event.direction,
+        #         datetime=market_event.datetime
+        #     )
 
         # Execute the order unless it's blocked due to limit up/down.
         # price_data: dict with keys: open, high, low, close
@@ -69,30 +90,3 @@ class ExecutionHandler:
         slippage_pct = slippage_pct if slippage_pct else self.slippage_pct
         direction = self.mapping.get(order.direction, 0)
         return price * (1 + direction * slippage_pct)
-
-
-class SimulatedExecutionHandler(ExecutionHandler):
-    def execute_order(self, order_event, market_event):
-        # Check if it's a limit order
-        if order_event.order_type == "LIMIT":
-            if order_event.direction == "BUY" and market_event.low <= order_event.limit_price:
-                fill_price = min(market_event.close, order_event.limit_price)  # Limit order filled at the limit price
-                fill_event = FillEvent(
-                    symbol=symbol,
-                    price=fill_price,
-                    quantity=order_event.quantity,
-                    direction=order_event.direction,
-                    datetime=market_event.datetime
-                )
-                self.events.put(fill_event)
-
-            elif order_event.direction == "SELL" and market_event.high >= order_event.limit_price:
-                fill_price = max(market_event.close, order_event.limit_price)  # Limit order filled at the limit price
-                fill_event = FillEvent(
-                    symbol=symbol,
-                    price=fill_price,
-                    quantity=order_event.quantity,
-                    direction=order_event.direction,
-                    datetime=market_event.datetime
-                )
-                self.events.put(fill_event)

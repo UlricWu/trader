@@ -4,8 +4,9 @@
 # @Project : trader
 # @Author  : wsw
 # @Time    : 2025/4/22 10:46
-
-from typing import List
+import os
+from datetime import datetime
+from typing import List, Dict, Any
 
 import numpy as np
 import pandas as pd
@@ -37,43 +38,167 @@ class PerformanceAnalyzer:
         self.portfolio = portfolio
         self.benchmark = benchmark
 
-    def summary(self, metrics: List[str] = None) -> pd.DataFrame:
-        """
-        Compute all requested metrics for each symbol and return a DataFrame.
+        self.snapshots = portfolio.daily_snapshots
+        self.transactions = portfolio.transactions
 
-        :param metrics: list of metric names; must match one of the public
-                        methods on this class.  If None, uses DEFAULT_METRICS.
-        """
-        metrics = metrics or self.DEFAULT_METRICS
-        results = []
-        for symbol, group in self.portfolio.equity_curve.groupby("symbol"):
-            values = group["price"]
-            returns = self.calculate_returns(values)
+        self.returns = self.portfolio.equity_df.pct_change().dropna()
 
-            start_day = group["date"].head(1).values[0]
-            end_day = group["date"].tail(1).values[0]
-            row = {"symbol": symbol,
-                   "start_day": start_day,
-                   "end_date": end_day,
-                   "period": end_day - start_day,
-                   "start_value": values.head(1).values[0],
-                   "end_value": values.tail(1).values[0]
+    def _analyze_symbol(self, symbol: str, pnl: float) -> Dict[str, Any]:
+        return {
+            "symbol": symbol,
+            "realized_pnl": round(pnl, 2),
+            "win": int(pnl > 0),
+            "loss": int(pnl < 0),
+            "neutral": int(pnl == 0),
 
-                   }
-            for m in metrics:
-                if not hasattr(self, m):
-                    raise ValueError(f"Metric '{m}' not found on PerformanceAnalyzer")
-                func = getattr(self, m)
-                # choose argument based on signature
-                if m == "max_drawdown":
-                    row[m] = func(values)
-                else:
-                    row[m] = func(returns)
+        }
 
-            results.append(row)
+    def summary(self) -> Dict[str, Any]:
+        equity_curve = self.portfolio.history
+        realized_pnl = self.portfolio.realized_pnl
 
-        # Convert results into a Pandas DataFrame
-        return pd.DataFrame(results).set_index("symbol")
+        if not equity_curve:
+            return {}
+
+        initial_cash = equity_curve[0][1]
+        final_equity = equity_curve[-1][1]
+        total_return = (final_equity - initial_cash) / initial_cash
+
+        # Analyze trade performance
+        trade_profits = list(realized_pnl.values())
+        wins = [p for p in trade_profits if p > 0]
+        losses = [abs(p) for p in trade_profits if p < 0]
+        neutral = [p for p in trade_profits if p == 0]
+
+        num_trades = len(trade_profits)
+        win_rate = len(wins) / num_trades if num_trades else 0.0
+        avg_win = np.mean(wins) if wins else 0.0
+        avg_loss = np.mean(losses) if losses else 0.0
+        profit_factor = (sum(wins) / sum(losses)) if losses else float("inf")
+
+        # Per-symbol breakdown
+        symbol_stats = {
+            sym: self._analyze_symbol(sym, pnl)
+            for sym, pnl in realized_pnl.items()
+        }
+
+        return {
+            "initial_cash": round(initial_cash, 2),
+            "final_equity": round(final_equity, 2),
+            "total_return": round(total_return, 4),
+            "num_trades": num_trades,
+            "win_rate": round(win_rate, 4),
+            "average_win": round(avg_win, 2),
+            "average_loss": round(avg_loss, 2),
+            "profit_factor": round(profit_factor, 4),
+            "per_symbol": symbol_stats
+        }
+
+    # def summary(self):
+    #     equity_series = [snap.total_value for snap in self.snapshots]
+    #     returns = [
+    #         (equity_series[i] / equity_series[i - 1] - 1.0)
+    #         for i in range(1, len(equity_series))
+    #     ]
+    #     total_return = equity_series[-1] / equity_series[0] - 1.0
+    #     win_trades = [t for t in self.transactions if t.realized_pnl > 0]
+    #     loss_trades = [t for t in self.transactions if t.realized_pnl < 0]
+    #
+    #     win_rate = len(win_trades) / max(len(win_trades) + len(loss_trades), 1)
+    #     avg_win = sum(t.realized_pnl for t in win_trades) / max(len(win_trades), 1)
+    #     avg_loss = -sum(t.realized_pnl for t in loss_trades) / max(len(loss_trades), 1)
+    #     profit_factor = sum(t.realized_pnl for t in win_trades) / max(-sum(t.realized_pnl for t in loss_trades), 1)
+    #
+    #     metrics = {
+    #         "total_return": total_return,
+    #         "win_rate": win_rate,
+    #         "avg_win": avg_win,
+    #         "avg_loss": avg_loss,
+    #         "profit_factor": profit_factor,
+    #     }
+    #     return metrics
+
+    def export_metrics(self, filepath: str = '') -> None:
+        import json
+        summary = self.summary()
+
+        if not filepath:
+            filepath = "stats/performance.json"
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        export_record = {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            **summary,
+        }
+
+        with open(filepath, "w") as f:
+            json.dump(export_record, f, indent=2)
+
+    def notify(self):
+        summary = self.summary()
+        print("🔔 Performance Summary:")
+        print(f"Total Return: {summary['total_return'] * 100:.2f}%")
+        print(f"Max Drawdown: {summary['max_drawdown'] * 100:.2f}%")
+        print(f"Sharpe Ratio: {summary['sharpe_ratio']:.2f}")
+        print("Per-symbol Stats:")
+        for symbol, stats in summary["per_symbol"].items():
+            print(f"  {symbol}: {stats}")
+
+    #     # Upload to S3
+    #     if self.config.aws.s3_upload_enabled:
+    #         self._upload_to_s3(versioned_path, f"reports/{filename}")
+    #         self._upload_to_s3(latest_path, "reports/performance_latest.json")
+    #
+    # def _upload_to_s3(self, local_path: str, s3_key: str):
+    #     aws = self.config.aws
+    #     try:
+    #         s3 = boto3.client(
+    #             "s3",
+    #             aws_access_key_id=aws.access_key,
+    #             aws_secret_access_key=aws.secret_key,
+    #             region_name=aws.region,
+    #         )
+    #         s3.upload_file(local_path, aws.s3_bucket, s3_key)
+    #         print(f"✅ Uploaded {local_path} to s3://{aws.s3_bucket}/{s3_key}")
+    #     except ClientError as e:
+    #         print(f"❌ Failed to upload to S3: {e}")
+
+    # def summary(self, metrics: List[str] = None) -> pd.DataFrame:
+    #     """
+    #     Compute all requested metrics for each symbol and return a DataFrame.
+    #
+    #     :param metrics: list of metric names; must match one of the public
+    #                     methods on this class.  If None, uses DEFAULT_METRICS.
+    #     """
+    #     metrics = metrics or self.DEFAULT_METRICS
+    #     results = []
+    #     for symbol, group in self.portfolio.equity_curve.groupby("symbol"):
+    #         values = group["price"]
+    #         returns = self.calculate_returns(values)
+    #
+    #         start_day = group["date"].head(1).values[0]
+    #         end_day = group["date"].tail(1).values[0]
+    #         row = {"symbol": symbol,
+    #                "start_day": start_day,
+    #                "end_date": end_day,
+    #                "period": end_day - start_day,
+    #                "start_value": values.head(1).values[0],
+    #                "end_value": values.tail(1).values[0]
+    #
+    #                }
+    #         for m in metrics:
+    #             if not hasattr(self, m):
+    #                 raise ValueError(f"Metric '{m}' not found on PerformanceAnalyzer")
+    #             func = getattr(self, m)
+    #             # choose argument based on signature
+    #             if m == "max_drawdown":
+    #                 row[m] = func(values)
+    #             else:
+    #                 row[m] = func(returns)
+    #
+    #         results.append(row)
+    #
+    #     # Convert results into a Pandas DataFrame
+    #     return pd.DataFrame(results).set_index("symbol")
 
     # --- public wrappers around your static calculations ---
     def total_return(self, returns: pd.DataFrame) -> float:
@@ -207,8 +332,3 @@ class PerformanceAnalyzer:
 #         plt.tight_layout()
 #         plt.show()
 #
-#     def summary(self) -> None:
-#         print("Performance Summary")
-#         print("=" * 30)
-#         for key, value in self.stats().items():
-#             print(f"{key:<20}: {value}")

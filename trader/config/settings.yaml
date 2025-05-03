@@ -29,6 +29,8 @@ ml:
 
   auto_save: true
   auto_load: true
+  lookback: 30
+  model_dir: "models"
 
 database:
   db_uri: "localhost:6001"

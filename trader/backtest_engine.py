@@ -62,9 +62,10 @@ class Backtest:
                 else:
                     message = f"backtest Unknown event type: {type(event)}"
                     logs.record_log(message, 3)
+            self.portfolio.record_daily_snapshot(event.datetime)
 
-        for date, equity in self.portfolio.history:
-            print(date, equity)
+        # for date, equity in self.portfolio.history:
+        #     print(date, equity)
 
     def plot_equity_curve(self):
         self.portfolio.equity_df.plot(title="Equity Curve", figsize=(10, 5))

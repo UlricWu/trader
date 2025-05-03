@@ -4,10 +4,11 @@
 # @Project : trader
 # @Author  : wsw
 # @Time    : 2025/4/21 12:23
+import pandas as pd
 import pytest
 
 from trader.events import FillEvent, SignalEvent, OrderEvent
-from trader.portfolio import Portfolio
+from trader.portfolio import Portfolio, Position
 from queue import Queue
 from datetime import datetime
 
@@ -84,7 +85,7 @@ from datetime import datetime
 
 
 def test_buy_commission(Commission_portfolio_with_mock_events):
-    portfolio, events = Commission_portfolio_with_mock_events
+    portfolio, _ = Commission_portfolio_with_mock_events
     buy_order = FillEvent(symbol='AAPL', price=100, quantity=10, direction="BUY", datetime='2025-04-22')
 
     # Apply buy fill
@@ -93,15 +94,15 @@ def test_buy_commission(Commission_portfolio_with_mock_events):
     expected_commission = portfolio.calculate_buy_commission(100 * 10)
 
     assert portfolio.cash == 100000 - (100 * 10 + expected_commission)
-    assert portfolio.holdings['AAPL'] == 10  # Check that the holding quantity increased
+    assert portfolio.positions['AAPL'].quantity == 10  # Check that the holding quantity increased
 
 
 def test_sell_commission(Commission_portfolio_with_mock_events):
-    portfolio, events = Commission_portfolio_with_mock_events
+    portfolio, _ = Commission_portfolio_with_mock_events
     sell_order = FillEvent(symbol='AAPL', price=100, quantity=10, direction="SELL", datetime='2025-04-22')
 
     # Add initial holdings to be able to sell
-    portfolio.holdings['AAPL'] = 10
+    portfolio.positions['AAPL'] = Position(symbol='AAPL', quantity=10, avg_price=100)
 
     # Apply sell fill
     portfolio.on_fill(sell_order)
@@ -109,12 +110,54 @@ def test_sell_commission(Commission_portfolio_with_mock_events):
     expected_commission = portfolio.calculate_sell_commission(100 * 10)
 
     assert portfolio.cash == 100000 + (100 * 10 - expected_commission)
-    assert portfolio.holdings['AAPL'] == 0  # Check that the holding quantity decreased
+    assert portfolio.positions['AAPL'].quantity == 0  # Check that the holding quantity decreased
+
+
+def test_buy_with_commission(Commission_portfolio_with_mock_events):
+    portfolio, _ = Commission_portfolio_with_mock_events
+    fill = FillEvent(symbol="000001.SZ", datetime=pd.to_datetime(20140101), price=10.0, quantity=1000, direction="BUY")
+
+    portfolio.on_fill(fill)
+
+    expected_cost = 10.0 * 1000
+    expected_commission = portfolio.calculate_buy_commission(expected_cost)
+    total_deduction = expected_cost + expected_commission
+
+    assert abs(portfolio.cash - (100000 - total_deduction)) < 1e-6
+    assert portfolio.positions["000001.SZ"].quantity == 1000
+    assert portfolio.positions["000001.SZ"].avg_price == 10.0
+
+
+def test_sell_with_commission_and_stamp_tax(Commission_portfolio_with_mock_events):
+    portfolio, _ = Commission_portfolio_with_mock_events
+    # First buy
+    quantity = 1000
+    price = 10.0
+    fill_buy = FillEvent(symbol="000001.SZ", datetime=pd.to_datetime(20140101), price=price, quantity=quantity,
+                         direction="BUY")
+    portfolio.on_fill(fill_buy)
+
+    # Then sell
+    fill_sell = FillEvent(symbol="000001.SZ", datetime=pd.to_datetime(20140101), price=price + 2, quantity=quantity,
+                          direction="SELL")
+    portfolio.on_fill(fill_sell)
+    selling = (price + 2) * quantity
+    selling_commission = portfolio.calculate_sell_commission(selling)
+
+    buying = (price) * quantity
+    buying_commission = portfolio.calculate_buy_commission(buying)
+
+    final_cash = 100000.0 - buying - buying_commission + selling - selling_commission
+
+    assert abs(portfolio.cash - final_cash) < 1e-6
+    assert portfolio.positions["000001.SZ"].quantity == 0
+
+    assert portfolio.realized_pnl["000001.SZ"] == (12.0 - price) * quantity
 
 
 def test_sell_with_stamp_duty_and_transfer_fee(Commission_portfolio_with_mock_events):
-    portfolio, events = Commission_portfolio_with_mock_events
-    portfolio.holdings['AAPL'] = 10  # Ensure there are holdings to sell
+    portfolio, _ = Commission_portfolio_with_mock_events
+    portfolio.positions['AAPL'].quantity = 10  # Ensure there are holdings to sell
 
     # This is to test the stamp duty and transfer fee
     sell_order = FillEvent(symbol='AAPL', price=100, quantity=10, direction="SELL", datetime='2025-04-22')
@@ -126,21 +169,22 @@ def test_sell_with_stamp_duty_and_transfer_fee(Commission_portfolio_with_mock_ev
     expected_commission = portfolio.calculate_sell_commission(100 * 10)
 
     # Check if the sell correctly deducts the commission + fees
-    assert portfolio.cash == 100000 + (100 * 10 - expected_commission)
-    assert portfolio.holdings['AAPL'] == 0  # Ensure holding quantity is now 0
+    assert portfolio.cash == pytest.approx(100000 + 100 * 10.0 - expected_commission)
+    assert portfolio.positions['AAPL'].quantity == 0  # Ensure holding quantity is now 0
 
 
 def test_on_fill_buy_commission_applied(Commission_portfolio_with_mock_events):
-    portfolio, events = Commission_portfolio_with_mock_events
+    portfolio, _ = Commission_portfolio_with_mock_events
     fill = FillEvent(symbol="AAPL", price=100, quantity=10, direction="BUY", datetime="2025-04-22")
     portfolio.on_fill(fill)
     expected_commission = max(1000 * 0.0003, 5.0)
     assert pytest.approx(portfolio.cash, 0.01) == 100000 - 1000 - expected_commission
-    assert portfolio.holdings["AAPL"] == 10
+    assert portfolio.positions["AAPL"].quantity == 10
+
 
 def test_on_fill_sell_commission_stamp_transfer_applied(Commission_portfolio_with_mock_events):
-    portfolio, events = Commission_portfolio_with_mock_events
-    portfolio.holdings["AAPL"] = 10
+    portfolio, _ = Commission_portfolio_with_mock_events
+    portfolio.positions["AAPL"] = Position(symbol="AAPL", quantity=10, avg_price=100)
     fill = FillEvent(symbol="AAPL", price=100, quantity=10, direction="SELL", datetime="2025-04-22")
     portfolio.on_fill(fill)
 
@@ -151,4 +195,4 @@ def test_on_fill_sell_commission_stamp_transfer_applied(Commission_portfolio_wit
     net_proceeds = gross_proceeds - commission - stamp - transfer
 
     assert pytest.approx(portfolio.cash, 0.01) == 100000 + net_proceeds
-    assert portfolio.holdings["AAPL"] == 0
+    assert portfolio.positions["AAPL"].quantity == 0

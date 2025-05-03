@@ -10,6 +10,7 @@ from trader.events import MarketEvent
 from utilts.logs import logs
 from trader.config import Settings
 
+
 class DailyBarDataHandler:
     """
     Streams daily bar data (OHLCV) one day at a time for all symbols.
@@ -29,6 +30,13 @@ class DailyBarDataHandler:
 
         self._index_iter = self._generate_index_iterator()
         self.settings = settings
+
+    @property
+    def symbols(self) -> List[str]:
+        return list(self.symbol_data['symbol'].unique())
+
+    def get_symbol_bars(self, symbol):
+        return self.symbol_data[self.symbol_data['symbol'] == symbol]
 
     def _generate_index_iterator(self):
         self.symbol_data.sort_values(by=["date", "symbol"], inplace=True)
@@ -82,4 +90,5 @@ class DailyBarDataHandler:
                 close=bar["close"],
 
             )
-            self.events.put(event)
+            if self.events:
+                self.events.put(event)
