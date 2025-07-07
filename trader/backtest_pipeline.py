@@ -10,8 +10,12 @@
 from trader.config import load_settings
 from trader.backtest_engine import Backtest
 from trader.performance import PerformanceAnalyzer
+
+
 def send_slack_notification(summary: dict):
-    msg = f"Backtest Completed. Return: {summary['total_return']*100:.2f}%"
+    msg = f"Backtest Completed. Return: {summary['total_return'] * 100:.2f}%"
+
+
 def backtest(settings):
     # 1. Load data from SQLite
     from data import db

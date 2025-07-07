@@ -99,7 +99,7 @@ class SchemaConfig(BaseModel):
         return cls(**raw)
 
 
-def load_and_normalize_data(df: pd.DataFrame) -> pd.DataFrame:
+def load_and_normalize_data(df: pd.DataFrame, adjustment=None) -> pd.DataFrame:
     rename_map = {
         "trade_date": "date",
         "vol": "volume",
@@ -118,7 +118,9 @@ def load_and_normalize_data(df: pd.DataFrame) -> pd.DataFrame:
     # }
     df = df.rename(columns=rename_map)
     df.sort_values(["date", "symbol"], inplace=True)
-    return df
+
+    if adjustment is None:
+        return df
 
 
 def extract_table(name="tutorial.db", table='daily', day=None, start_day=None, pandas=True, ts_code=None):

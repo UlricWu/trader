@@ -128,13 +128,14 @@ class Portfolio:
                 logs.record_log(message=message, level=3)
                 return
 
-        elif direction == "SELL":
+        elif direction == "SELL" and symbol in self.positions:
+
             if self.positions[symbol].quantity < quantity:
                 message = f"SIGNAL={direction} {symbol} fail at quantity={quantity} because of not enough holdings {self.positions}"
                 logs.record_log(message=message, level=3)
                 return
         else:
-            message = f"Unknown signal type: {direction} for {symbol} at {signal_event.datetime}  "
+            message = f"Unknown signal type: {direction} for {symbol} holding {self.positions} at {signal_event.datetime}  "
             logs.record_log(message=message, level=3)
             return
 
@@ -249,34 +250,3 @@ class Portfolio:
             holdings=holdings_value,
             total_value=equity
         ))
-
-    # def on_fill(self, fill_event: FillEvent):
-    #
-    #     cost = fill_event.price * fill_event.quantity
-    #     if fill_event.direction == "BUY":
-    #         commission = self.calculate_buy_commission(cost) if self.commission_rate else 0
-    #         self.cash -= cost + commission  # Deduct commission on buy
-    #
-    #         self.holdings[fill_event.symbol] += fill_event.quantity
-    #
-    #     elif fill_event.direction == "SELL":
-    #         commission = self.calculate_sell_commission(cost) if self.commission_rate else 0
-    #         self.cash += cost - commission
-    #         self.holdings[fill_event.symbol] -= fill_event.quantity
-    #
-    #     fill = Fill(
-    #         symbol=fill_event.symbol,
-    #         date=fill_event.datetime,
-    #         price=fill_event.price,
-    #         quantity=fill_event.quantity
-    #     )
-    #
-    #     position = self.positions.get(fill.symbol)
-    #     if position is None:
-    #         position = Position(symbol=fill.symbol)
-    #         self.positions[fill.symbol] = position
-    #
-    #     self.cash -= fill.price * fill.quantity
-    #     position.update(fill)
-    #
-    #     # Save for performance
