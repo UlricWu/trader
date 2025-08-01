@@ -12,13 +12,9 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from trader.performance import PerformanceAnalyzer
-from trader.backtest_engine import Backtest  # Assuming you have this
-# from trader.visualization import plot_equity_and_drawdown, plot_per_symbol_equity
 from trader.config import load_settings
 from trader.backtest_engine import Backtest
 from trader.performance import PerformanceAnalyzer
-import streamlit as st
 
 
 def plot_equity_drawdown(equity_df: pd.DataFrame, title: str = "Equity Curve") -> plt.Figure:
