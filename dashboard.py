@@ -5,6 +5,7 @@
 # @Author  : wsw
 # @Time    : 2025/8/1 17:12
 # dashboard.py
+import time
 from typing import Dict, List
 
 import numpy as np
@@ -38,74 +39,67 @@ def plot_equity_drawdown(equity_df: pd.DataFrame, title: str = "Equity Curve") -
     plt.tight_layout()
     return fig
 
+def run_and_display(settings):
+    from data import db
+    df = db.extract_table(name=settings.data.name, end_day=settings.data.end_day,
+                          start_day=settings.data.start_day, ts_code=settings.data.ts_code)
+    data = db.load_and_normalize_data(df)
+
+    bt = Backtest(data, settings=settings)
+    bt.run()
+    performance = PerformanceAnalyzer(portfolio=bt.portfolio)
+
+    # ---- Render UI Tabs Here (tab1, tab2 same as before) ----
+    tab1, tab2 = st.tabs(["📊 Account Overview", "📈 Per-Symbol Performance"])
+    with tab1:
+        st.subheader("📊 Account-Level Metrics")
+        metrics = performance.account_summary()
+
+        left_col, right_col = st.columns([1, 2])
+        with left_col:
+            for m, value in metrics.items():
+                st.metric(m, round(value, 2) if abs(value) > 1 else f"{value:.2%}")
+        with right_col:
+            fig = plot_equity_drawdown(performance.equity_df, title="Equity & Drawdown")
+            st.pyplot(fig)
+        st.divider()
+
+    with tab2:
+        st.subheader("📈 Per-Symbol Performance")
+        left_col, right_col = st.columns([1, 2])
+        with left_col:
+            symbol_metrics = performance.symbol_summary()
+            st.table(pd.DataFrame(symbol_metrics))
+        with right_col:
+            for symbol in symbol_metrics.keys():
+                price_df = bt.data_handler.get_symbol_bars(symbol)
+                trades = [t for t in performance.portfolio.transactions if t.symbol == symbol]
+                if price_df is not None and not price_df.empty:
+                    fig = plot_candlestick_with_trades(symbol, price_df, trades)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning(f"No price data for {symbol}")
+
 
 def main():
     st.set_page_config(layout="wide", page_title="Trading Performance Dashboard")
     st.title("📈 Trading Performance Dashboard")
 
+    st.sidebar.header("⚙️ Live Dashboard Settings")
+    live_mode = st.sidebar.checkbox("Enable Live Mode", value=False)
+    refresh_sec = st.sidebar.slider("Refresh Interval (sec)", 5, 60, 10)
+
     settings = load_settings()
     st.info("Click 'Run Backtest' to start.")
 
-    if st.button("Run Backtest"):
-        # 1. Load data from SQLite
-        from data import db
-
-        df = db.extract_table(name=settings.data.name, end_day=settings.data.end_day, start_day=settings.data.start_day,
-                              ts_code=settings.data.ts_code)
-        data = db.load_and_normalize_data(df)
-
-        bt = Backtest(data, settings=settings)
-        bt.run()
-        performance = PerformanceAnalyzer(portfolio=bt.portfolio)
-
-        # Create Tabs for layout clarity
-        tab1, tab2 = st.tabs(["📊 Account Overview", "📈 Per-Symbol Performance"])
-
-        # Tab 1: Account-Level Overview
-        with tab1:
-            st.subheader("📊 Account-Level Metrics")
-            metrics = performance.account_summary()
-
-            # Layout: Left stats, right plot
-            left_col, right_col = st.columns([1, 2])  # Ratio 1:2
-
-            with left_col:
-                st.subheader("📊  Stat")
-                for m, value in metrics.items():
-                    if abs(value) > 1:
-                        st.metric(m, round(value, 2))
-                    else:
-                        st.metric(m, f"{value:.2%}")
-
-            with right_col:
-                st.subheader("📉 Equity Curve + Drawdown")
-                fig = plot_equity_drawdown(performance.equity_df, title="Equity & Drawdown")
-                st.pyplot(fig)
-
-            st.divider()
-            st.markdown("---")
-        # Tab 2: Per-Symbol Metrics + Trade Plots
-        with tab2:
-            st.subheader("📈 Per-Symbol Performance")
-
-            # Per-Symbol Section Below
-            left_col, right_col = st.columns([1, 2])  # Ratio 1:2
-            with left_col:
-                st.subheader("📊  Stat")
-                symbol_metrics = performance.symbol_summary()
-                st.table(pd.DataFrame(symbol_metrics))
-
-            with right_col:
-                for symbol in symbol_metrics.keys():
-
-                    price_df = bt.data_handler.get_symbol_bars(symbol)
-                    trades = [t for t in performance.portfolio.transactions if t.symbol == symbol]
-
-                    if price_df is not None and not price_df.empty:
-                        fig = plot_candlestick_with_trades(symbol, price_df, trades)
-                        st.plotly_chart(fig, use_container_width=True)
-                    else:
-                        st.warning(f"No price data for {symbol}")
+    if live_mode:
+        st.success(f"Live Mode Enabled — refreshing every {refresh_sec} sec.")
+        run_and_display(settings)
+        time.sleep(refresh_sec)
+        st.rerun()
+    else:
+        if st.button("Run Backtest"):
+            run_and_display(settings)
 
 
 import plotly.graph_objects as go
@@ -171,29 +165,6 @@ def plot_candlestick_with_trades(
         height=600
     )
 
-    return fig
-
-
-def method_name(data_handler, performance, symbol):
-    df = data_handler.get_symbol_bars(symbol)
-    trades = [t for t in performance.portfolio.transactions if t.symbol == symbol]
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(df['date'], df["close"], label="Close Price", color="black", linewidth=1.5)
-    # Optional: show open price line for reference
-    # ax.plot(df['date'], df["open"], label="Open Price", color="blue", linestyle="--", alpha=0.6)
-    # Trade markers
-    buy_dates = [t.date for t in trades if t.quantity > 0]
-    buy_prices = [t.price for t in trades if t.quantity > 0]
-    sell_dates = [t.date for t in trades if t.quantity < 0]
-    sell_prices = [t.price for t in trades if t.quantity < 0]
-    ax.scatter(buy_dates, buy_prices, color="green", marker="^", label="Buy", s=10)
-    ax.scatter(sell_dates, sell_prices, color="red", marker="v", label="Sell", s=10)
-    ax.set_title(f"Live Trading Plot: {symbol}")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Price")
-    ax.grid(True)
-    ax.legend(loc="best")
-    plt.tight_layout()
     return fig
 
 
