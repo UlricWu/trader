@@ -76,6 +76,7 @@ class FillEvent(Event):
     quantity: int
     price: float
     direction: str
+    commission: float = 0
 
     def __init__(self, symbol, price, quantity, direction, datetime):
         super().__init__(EventType.FILL, datetime)
