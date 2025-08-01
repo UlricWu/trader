@@ -23,7 +23,7 @@ def train(settings):
 
     code = "000001.SZ"
 
-    df = db.extract_table(day="20250205", start_day='20240601', ts_code=[code])
+    df = db.extract_table(end_day="20250205", start_day='20240601', ts_code=[code])
     data = db.load_and_normalize_data(df)
 
     # _get_adjustment

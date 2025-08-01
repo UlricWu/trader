@@ -24,6 +24,9 @@ class Backtest:
         # Strategy, Execution Handler, and Portfolio
         # self.strategy = get_strategy(self.events)
         # self.strategy = strategy_cls(self.events)  # avoid hardcoding
+        if not len(data):
+            logs.record_log("策略初始化异常，数据为空", 3)
+            return
         logs.record_log("策略初始化完成")
         # self.portfolio = Portfolio(self.events, initial_cash)
 
@@ -35,6 +38,7 @@ class Backtest:
             self.data_handler.stream_next()
 
             while not self.events.empty():
+
                 event = self.events.get()
 
                 # if len(self.portfolio.history) % 50 == 0:
@@ -62,6 +66,7 @@ class Backtest:
                 else:
                     message = f"backtest Unknown event type: {type(event)}"
                     logs.record_log(message, 3)
+            # print(event)
             self.portfolio.record_daily_snapshot(event.datetime)
 
         # for date, equity in self.portfolio.history:

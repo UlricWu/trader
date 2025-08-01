@@ -123,16 +123,16 @@ def load_and_normalize_data(df: pd.DataFrame, adjustment=None) -> pd.DataFrame:
         return df
 
 
-def extract_table(name="tutorial.db", table='daily', day=None, start_day=None, pandas=True, ts_code=None):
-    if not day:
-        day = datetime.today().strftime('%Y%m%d')
+def extract_table(name="tutorial.db", table='daily', end_day=None, start_day=None, pandas=True, ts_code=None):
+    if not end_day:
+        end_day = datetime.today().strftime('%Y%m%d')
     if not start_day:
-        start_day = day
+        start_day = end_day
 
-    if int(start_day) > int(day):
-        raise ValueError(f"start_day={start_day} >day={day}")
+    if int(start_day) > int(end_day):
+        raise ValueError(f"start_day={start_day} >day={end_day}")
 
-    sql = f"select * from {table} where trade_date >= '{start_day}' and trade_date <= '{day}' "
+    sql = f"select * from {table} where trade_date >= '{start_day}' and trade_date <= '{end_day}' "
 
     if ts_code:
         id_sql = "', '".join(str(x) for x in ts_code)

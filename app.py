@@ -60,7 +60,7 @@ def create_app():
         else:
             today = inputs['today']
         logs.record_log(f'inputs = {inputs} with today = {today}')
-        return db.extract_table(day=today).to_json(orient='records')
+        return db.extract_table(end_day=today).to_json(orient='records')
 
     return apps
 

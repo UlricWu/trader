@@ -21,6 +21,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
+
 class PerformanceAnalyzer:
     """
     Analyzes portfolio performance after backtest.
@@ -154,7 +155,8 @@ class PerformanceAnalyzer:
         if daily_returns.empty:
             return 0.0
         excess = daily_returns - risk_free_rate / 252
-        return round(excess.mean() / excess.std() * (252 ** 0.5), 4)[0]  # pd.series->float
+        sharpe = round(excess.mean() / excess.std() * (252 ** 0.5), 4)
+        return sharpe.iloc[0]  # pd.series->float
 
 #     # ================== Extensibility ==================
 
