@@ -80,7 +80,7 @@ def update_daily(table, data):
         db.execute(f"drop table if exists {temp_table}")
 
 
-# from configs.config import SchemaConfig
+# from config.config import SchemaConfig
 from pydantic import BaseModel
 from typing import Dict
 
@@ -99,7 +99,7 @@ class SchemaConfig(BaseModel):
         return cls(**raw)
 
 
-def load_and_normalize_data(df: pd.DataFrame) -> pd.DataFrame:
+def load_and_normalize_data(df: pd.DataFrame, adjustment=None) -> pd.DataFrame:
     rename_map = {
         "trade_date": "date",
         "vol": "volume",
@@ -117,19 +117,22 @@ def load_and_normalize_data(df: pd.DataFrame) -> pd.DataFrame:
     #     schema.vol: "volume",
     # }
     df = df.rename(columns=rename_map)
-    return df
+    df.sort_values(["date", "symbol"], inplace=True)
+
+    if adjustment is None:
+        return df
 
 
-def extract_table(name="tutorial.db", table='daily', day=None, start_day=None, pandas=True, ts_code=None):
-    if not day:
-        day = datetime.today().strftime('%Y%m%d')
+def extract_table(name="tutorial.db", table='daily', end_day=None, start_day=None, pandas=True, ts_code=None):
+    if not end_day:
+        end_day = datetime.today().strftime('%Y%m%d')
     if not start_day:
-        start_day = day
+        start_day = end_day
 
-    if int(start_day) > int(day):
-        raise ValueError(f"start_day={start_day} >day={day}")
+    if int(start_day) > int(end_day):
+        raise ValueError(f"start_day={start_day} >day={end_day}")
 
-    sql = f"select * from {table} where trade_date >= '{start_day}' and trade_date <= '{day}' "
+    sql = f"select * from {table} where trade_date >= '{start_day}' and trade_date <= '{end_day}' "
 
     if ts_code:
         id_sql = "', '".join(str(x) for x in ts_code)
@@ -153,7 +156,7 @@ def check_table(table_name='daily'):
 
 
 def create_table_daily():
-    file = '/home/wsw/trader/configs/daily.sql'
+    file = '/home/wsw/trader/config/daily.sql'
     with open(file, 'r') as sql_file:
         sql_script = sql_file.read()
     logs.record_log(sql_script)

@@ -1,16 +1,12 @@
 import yaml
-import os
 from data import db, Data
 from utilts import logs
-import os, subprocess, pickle, requests, json
+import os, json
 from flask import Flask, jsonify, request
-
-from datetime import datetime
-from configs import auto_config as cfg
 
 
 def create_app():
-    config_path = os.environ.get('CONFIGS', "configs/config_test.yaml")
+    config_path = os.environ.get('CONFIGS', "trader/config/config_test.yaml")
 
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
@@ -64,7 +60,7 @@ def create_app():
         else:
             today = inputs['today']
         logs.record_log(f'inputs = {inputs} with today = {today}')
-        return db.extract_table(day=today).to_json(orient='records')
+        return db.extract_table(end_day=today).to_json(orient='records')
 
     return apps
 

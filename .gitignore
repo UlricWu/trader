@@ -175,3 +175,4 @@ log
 db/
 
 *.db
+*.pkl
