@@ -31,7 +31,7 @@ jobs:
 
       - name: Run Pytest
         run: |
-          pytest --maxfail=1 --disable-warnings --cov
+          pytest 
 
   auto-merge-dev-to-master:
     name: Auto Merge dev → master
