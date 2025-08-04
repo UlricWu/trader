@@ -81,25 +81,7 @@ def run_and_display(settings):
                     st.warning(f"No price data for {symbol}")
 
 
-def main():
-    st.set_page_config(layout="wide", page_title="Trading Performance Dashboard")
-    st.title("📈 Trading Performance Dashboard")
 
-    st.sidebar.header("⚙️ Live Dashboard Settings")
-    live_mode = st.sidebar.checkbox("Enable Live Mode", value=False)
-    refresh_sec = st.sidebar.slider("Refresh Interval (sec)", 5, 60, 10)
-
-    settings = load_settings()
-    st.info("Click 'Run Backtest' to start.")
-
-    if live_mode:
-        st.success(f"Live Mode Enabled — refreshing every {refresh_sec} sec.")
-        run_and_display(settings)
-        time.sleep(refresh_sec)
-        st.rerun()
-    else:
-        if st.button("Run Backtest"):
-            run_and_display(settings)
 
 
 import plotly.graph_objects as go
@@ -166,6 +148,26 @@ def plot_candlestick_with_trades(
     )
 
     return fig
+
+def main():
+    st.set_page_config(layout="wide", page_title="Trading Performance Dashboard")
+    st.title("📈 Trading Performance Dashboard")
+
+    st.sidebar.header("⚙️ Live Dashboard Settings")
+    live_mode = st.sidebar.checkbox("Enable Live Mode", value=False)
+    refresh_sec = st.sidebar.slider("Refresh Interval (sec)", 5, 60, 10)
+
+    settings = load_settings()
+    st.info("Click 'Run Backtest' to start.")
+
+    if live_mode:
+        st.success(f"Live Mode Enabled — refreshing every {refresh_sec} sec.")
+        run_and_display(settings)
+        time.sleep(refresh_sec)
+        st.rerun()
+    else:
+        if st.button("Run Backtest"):
+            run_and_display(settings)
 
 
 if __name__ == "__main__":
