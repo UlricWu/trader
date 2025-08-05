@@ -16,7 +16,7 @@ from typing import List, Optional
 
 @dataclass
 class DataSettings:
-    name: str = "db/tutorial.db"
+    database: str = "db/tutorial.db"
     end_day = "20250205"
     start_day = '20240601'
     ts_code = ["000001.SZ", "000002.SZ", "000003.SZ"]
