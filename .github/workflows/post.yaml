@@ -14,11 +14,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - id: date
-        run: |
-          TZ=Asia/Taipei  # Set your timezone here
-          date_str=$(date +'%Y-%m-%d-%H%M')
-          tz_offset=$(date +'%Z')
-          echo "TAG=release-${date_str}-${tz_offset}" >> $GITHUB_OUTPUT
+        run: echo "date=$(TZ=Asia/Taipei date +'%Y-%m-%d-%H%M-%Z')" >> $GITHUB_OUTPUT
 
 
       - uses: softprops/action-gh-release@v1
