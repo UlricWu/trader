@@ -94,53 +94,53 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
-
-
-  release:
-    name: Create Release Tag
-    needs: auto-merge
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout master
-        uses: actions/checkout@v3
-        with:
-          ref: master
-
-      - name: Set up Git user
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-
-      - name: Create Release Tag
-        run: |
-          DATE=$(date +'%Y-%m-%d-%H%M%S')
-          TAG="release-${DATE}"
-          git tag "$TAG"
-          git push origin "$TAG"
-
-  sync-dev:
-    name: Sync master into dev
-    needs: release
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout master
-        uses: actions/checkout@v3
-        with:
-          ref: master
-
-      - name: Set up Git user
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Merge master into dev
-        run: |
-          git fetch origin dev
-          git checkout dev
-          git merge --no-ff origin/master -m "Sync master into dev after release" --allow-unrelated-histories
-          git push origin dev
+#
+#
+#
+#
+#  release:
+#    name: Create Release Tag
+#    needs: auto-merge
+#    runs-on: ubuntu-latest
+#
+#    steps:
+#      - name: Checkout master
+#        uses: actions/checkout@v3
+#        with:
+#          ref: master
+#
+#      - name: Set up Git user
+#        run: |
+#          git config user.name "github-actions[bot]"
+#          git config user.email "github-actions[bot]@users.noreply.github.com"
+#
+#
+#      - name: Create Release Tag
+#        run: |
+#          DATE=$(date +'%Y-%m-%d-%H%M%S')
+#          TAG="release-${DATE}"
+#          git tag "$TAG"
+#          git push origin "$TAG"
+#
+#  sync-dev:
+#    name: Sync master into dev
+#    needs: release
+#    runs-on: ubuntu-latest
+#
+#    steps:
+#      - name: Checkout master
+#        uses: actions/checkout@v3
+#        with:
+#          ref: master
+#
+#      - name: Set up Git user
+#        run: |
+#          git config user.name "github-actions[bot]"
+#          git config user.email "github-actions[bot]@users.noreply.github.com"
+#
+#      - name: Merge master into dev
+#        run: |
+#          git fetch origin dev
+#          git checkout dev
+#          git merge --no-ff origin/master -m "Sync master into dev after release" --allow-unrelated-histories
+#          git push origin dev
