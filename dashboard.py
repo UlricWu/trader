@@ -8,14 +8,15 @@
 import time
 from typing import Dict, List
 
-import numpy as np
 import streamlit as st
 import matplotlib.pyplot as plt
-import pandas as pd
 
 from trader.config import load_settings
 from trader.backtest_engine import Backtest
 from trader.performance import PerformanceAnalyzer
+
+import plotly.graph_objects as go
+import pandas as pd
 
 
 def plot_equity_drawdown(equity_df: pd.DataFrame, title: str = "Equity Curve") -> plt.Figure:
@@ -82,10 +83,6 @@ def run_and_display(settings):
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.warning(f"No price data for {symbol}")
-
-
-import plotly.graph_objects as go
-import pandas as pd
 
 
 def plot_candlestick_with_trades(
