@@ -46,7 +46,6 @@ def run_and_display(settings):
 
     df = db.extract_table(database=settings.data.database, end_day=settings.data.end_day,
                           start_day=settings.data.start_day, ts_code=settings.data.ts_code)
-    # data = df
     data = db.load_and_normalize_data(df)
 
     bt = Backtest(data, settings=settings)
