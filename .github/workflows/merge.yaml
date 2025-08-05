@@ -101,7 +101,7 @@ jobs:
         run: |
           git fetch origin dev
           git checkout dev
-          git merge origin/master --no-ff --no-edit
+          git merge origin/master --no-ff --no-edit --no-edit --allow-unrelated-histories
           git push origin dev
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
