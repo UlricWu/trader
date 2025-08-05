@@ -51,6 +51,11 @@ jobs:
     needs: create-pr
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Required to create full .git directory
+
       - name: Enable Auto-Merge (via gh api)
         run: |
           PR_ID=$(gh pr view ${{ needs.create-pr.outputs.pr_number }} --json id -q .id)
