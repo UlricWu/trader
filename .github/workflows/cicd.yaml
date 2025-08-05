@@ -1,0 +1,58 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - 'dev'
+      - 'dev-*'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - run: |
+          pip install -r requirements.txt
+          pytest
+
+  create-pr:
+    name: Create PR dev → master
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/dev'
+    outputs:
+      pr_number: ${{ steps.cpr.outputs.pull-request-number }}
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: dev
+
+      - id: cpr
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: master
+          branch: dev
+          title: 'Auto PR: dev → master'
+          body: Auto-PR to merge dev into master
+          delete-branch: false
+
+  auto-merge:
+    name: Auto-Merge PR
+    runs-on: ubuntu-latest
+    needs: create-pr
+
+    steps:
+      - name: Auto-Merge with gh CLI
+        run: |
+          gh pr merge ${{ needs.create-pr.outputs.pr_number }} --auto --squash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
