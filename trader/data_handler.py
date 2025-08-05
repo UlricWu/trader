@@ -81,6 +81,8 @@ class DailyBarDataHandler:
         bars = self.symbol_data[self.symbol_data["date"] == current_date]
         for _, bar in bars.iterrows():
             # adjusted_bar = self._adjust_price(bar, symbol)
+            # todo add more features including Fundamental(PE_ratio, EPS, ROE, CPI),
+            #  Macro(Interest_Rate, Unemployment), Cross-asset(SPY_return, VIX_level), Sentiment(NewsScore, SocialBuzz)
             event = MarketEvent(
                 datetime=bar["date"],
                 symbol=bar["symbol"],

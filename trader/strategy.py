@@ -181,37 +181,3 @@ class Strategy(BaseStrategy):
         elif event.close < avg:
             # limit_price = event.close * (1 - self.slippage)  # Sell 1% below the close price
             self.events.put(SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type="SELL"))
-
-#
-# class MLStrategy(BaseStrategy):
-#     def __init__(self, events, settings, symbol: str):
-#         super().__init__(events)
-#         self.symbol = symbol
-#         self.settings = settings
-#         self.model = Model(settings, symbol)
-#
-#     def generate_signals(self, market_event):
-#         features = self.extract_features(market_event)
-#         prediction = self.model.predict([features])[0]
-#
-#         if prediction == 1:
-#             self.create_buy_signal(market_event.symbol)
-#         elif prediction == -1:
-#             self.create_sell_signal(market_event.symbol)
-#
-#     def extract_features(self, market_event):
-#         return [
-#             market_event.open,
-#             market_event.high,
-#             market_event.low,
-#             market_event.close,
-#             market_event.volume,
-#         ]
-#
-#     def create_buy_signal(self, symbol):
-#         # Emit SignalEvent...
-#         ...
-#
-#     def create_sell_signal(self, symbol):
-#         # Emit SignalEvent...
-#         ...
