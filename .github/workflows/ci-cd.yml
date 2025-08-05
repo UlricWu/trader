@@ -51,6 +51,10 @@ jobs:
     needs: create-pr
 
     steps:
+      - name: Checkout repo (required for .git)
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - name: Auto-Merge with gh CLI
         run: |
           gh pr merge ${{ needs.create-pr.outputs.pr_number }} --auto --squash
