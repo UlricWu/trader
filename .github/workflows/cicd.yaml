@@ -46,13 +46,20 @@ jobs:
           delete-branch: false
 
   auto-merge:
-    name: Auto-Merge PR
+    name: Enable Auto-Merge via gh api
     runs-on: ubuntu-latest
     needs: create-pr
 
     steps:
-      - name: Auto-Merge with gh CLI
+      - name: Enable Auto-Merge (via gh api, no git)
         run: |
-          gh pr merge ${{ needs.create-pr.outputs.pr_number }} --auto --squash
+          PR_ID=$(gh pr view ${{ needs.create-pr.outputs.pr_number }} --json id -q .id)
+          gh api graphql -f query='
+            mutation($prId: ID!) {
+              enablePullRequestAutoMerge(input: { pullRequestId: $prId, mergeMethod: SQUASH }) {
+                pullRequest { number }
+              }
+            }' -f prId=$PR_ID
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
