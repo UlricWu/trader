@@ -1,9 +1,6 @@
 name: Post-Merge Tasks
 
 on:
-  push:
-    branches:
-      - master
   pull_request:
     branches:
       - 'master'
