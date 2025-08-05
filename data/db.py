@@ -8,8 +8,11 @@ import pandas as pd
 
 class Database:
     def __init__(self, name="tutorial.db"):
+
         self._conn = sqlite3.connect(name)
         self._cursor = self._conn.cursor()
+
+        logs.record_log(f'loading database={name}')
 
     def __enter__(self):
         return self
@@ -123,7 +126,7 @@ def load_and_normalize_data(df: pd.DataFrame, adjustment=None) -> pd.DataFrame:
         return df
 
 
-def extract_table(name="tutorial.db", table='daily', end_day=None, start_day=None, pandas=True, ts_code=None):
+def extract_table(database="tutorial.db", table='daily', end_day=None, start_day=None, pandas=True, ts_code=None):
     if not end_day:
         end_day = datetime.today().strftime('%Y%m%d')
     if not start_day:
@@ -138,7 +141,11 @@ def extract_table(name="tutorial.db", table='daily', end_day=None, start_day=Non
         id_sql = "', '".join(str(x) for x in ts_code)
         sql += f"""and ts_code IN ('{id_sql}') """
 
-    with Database(name) as db:
+    with Database(database) as db:
+        if not check_table(table=table, database=database):
+            logs.record_log(f"Table {table} does not exist")
+
+        # print(db.query('select * from daily limit 1'))
         if pandas:
             # return pd.read_sql_query(sql, db.connection,parse_dates=['trade_date'])
             df = pd.read_sql_query(sql, db.connection)
@@ -148,10 +155,10 @@ def extract_table(name="tutorial.db", table='daily', end_day=None, start_day=Non
         return db.query(sql)
 
 
-def check_table(table_name='daily'):
-    sql = f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}' "
+def check_table(table='daily', database="tutorial.db"):
+    sql = f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table}' "
 
-    with Database() as db:
+    with Database(database) as db:
         return len(db.query(sql)) == 0
 
 

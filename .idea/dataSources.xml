@@ -46,5 +46,13 @@
         </library>
       </libraries>
     </data-source>
+    <data-source source="LOCAL" name="SQLite" uuid="64b8b896-e298-4c14-ace9-fa14153ecdb7">
+      <driver-ref>sqlite.xerial</driver-ref>
+      <synchronize>true</synchronize>
+      <configured-by-url>true</configured-by-url>
+      <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
+      <jdbc-url>jdbc:sqlite:$PROJECT_DIR$/tutorial.db</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
   </component>
 </project>

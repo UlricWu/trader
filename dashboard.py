@@ -39,10 +39,13 @@ def plot_equity_drawdown(equity_df: pd.DataFrame, title: str = "Equity Curve") -
     plt.tight_layout()
     return fig
 
+
 def run_and_display(settings):
     from data import db
-    df = db.extract_table(name=settings.data.name, end_day=settings.data.end_day,
+
+    df = db.extract_table(database=settings.data.database, end_day=settings.data.end_day,
                           start_day=settings.data.start_day, ts_code=settings.data.ts_code)
+    # data = df
     data = db.load_and_normalize_data(df)
 
     bt = Backtest(data, settings=settings)
@@ -79,9 +82,6 @@ def run_and_display(settings):
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.warning(f"No price data for {symbol}")
-
-
-
 
 
 import plotly.graph_objects as go
@@ -148,6 +148,7 @@ def plot_candlestick_with_trades(
     )
 
     return fig
+
 
 def main():
     st.set_page_config(layout="wide", page_title="Trading Performance Dashboard")

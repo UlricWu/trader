@@ -95,7 +95,7 @@ class Logging:
         Returns:
 
         """
-        log_level = message.record["level"].name.lower()
+        log_level = message.record["level"].database.lower()
         log_file = f"{log_level}.log"
         log_path = os.path.join(self.log_dir, log_file)
 
