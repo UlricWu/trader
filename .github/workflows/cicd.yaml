@@ -50,7 +50,7 @@ jobs:
         run: |
           git fetch origin master
           git checkout master
-          git merge --no-ff origin/dev -m "Auto-merge dev into master from CI/CD"
+          git merge --no-ff origin/dev -m "Auto-merge dev into master from CI/CD" --allow-unrelated-histories
           git push origin master
 
   release:
@@ -96,5 +96,5 @@ jobs:
         run: |
           git fetch origin dev
           git checkout dev
-          git merge --no-ff origin/master -m "Sync master into dev after release"
+          git merge --no-ff origin/master -m "Sync master into dev after release" --allow-unrelated-histories
           git push origin dev
