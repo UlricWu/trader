@@ -3,112 +3,98 @@ name: CI/CD Pipeline
 on:
   push:
     branches:
-      - 'dev'
-      - 'dev-*'
+      - dev
+      - master
+      - dev-*
+  pull_request:
+    branches:
+      - dev
+      - master
 
 jobs:
   test:
-    name: Run Tests
+    name: Run Pytest
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: 3.10
 
-      - run: |
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pytest
 
-  create-pr:
-    name: Create PR dev → master
-    runs-on: ubuntu-latest
+      - name: Run Pytest
+        run: pytest
+
+  merge-to-master:
+    name: Merge dev into master
     needs: test
-    if: github.ref == 'refs/heads/dev'
-    outputs:
-      pr_number: ${{ steps.cpr.outputs.pull-request-number }}
-
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          ref: dev
-
-      - id: cpr
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          base: master
-          branch: dev
-          title: 'Auto PR: dev → master'
-          body: Auto-PR to merge dev into master
-          delete-branch: false
-
-  auto-merge:
-    name: Enable Auto-Merge
+    if: github.event_name == 'pull_request' && github.base_ref == 'dev' && github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-    needs: create-pr
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Required to create full .git directory
+          ref: dev
 
-      - name: Enable Auto-Merge (via gh api)
+      - name: Set up Git user
         run: |
-          PR_ID=$(gh pr view ${{ needs.create-pr.outputs.pr_number }} --json id -q .id)
-          gh api graphql -f query='
-            mutation($prId: ID!) {
-              enablePullRequestAutoMerge(input: { pullRequestId: $prId, mergeMethod: SQUASH }) {
-                pullRequest { number }
-              }
-            }' -f prId=$PR_ID
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-  wait-and-release:
-    name: Wait for merge → Release + Sync
+      - name: Merge dev into master
+        run: |
+          git fetch origin master
+          git checkout master
+          git merge --no-ff origin/dev -m "Auto-merge dev into master after PR"
+          git push origin master
+
+  release:
+    name: Release job after master merge
+    needs: merge-to-master
     runs-on: ubuntu-latest
-    needs: auto-merge
 
     steps:
-      - name: Wait for master update
-        run: sleep 20  # Give GitHub time to merge PR into master
-
       - name: Checkout master
         uses: actions/checkout@v3
         with:
           ref: master
-          fetch-depth: 0
 
-      - name: Get current date
-        id: date
-        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: release-${{ steps.date.outputs.date }}
-          name: Release ${{ steps.date.outputs.date }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Sync master → dev
+      - name: Release steps (example)
         run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          echo "Release logic here, e.g., package, deploy, notify..."
+          # Example: create a tag
+          VERSION=$(date +'%Y.%m.%d-%H%M')
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
 
-          git fetch origin dev || echo "No dev branch yet"
+  sync-dev:
+    name: Sync master into dev
+    needs: release
+    runs-on: ubuntu-latest
 
-          if git rev-parse origin/dev >/dev/null 2>&1; then
-            git checkout dev
-            git merge origin/master --no-ff --no-edit
-          else
-            git checkout -b dev
-          fi
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v3
+        with:
+          ref: master
 
+      - name: Set up Git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge master into dev
+        run: |
+          git fetch origin dev
+          git checkout dev
+          git merge --no-ff origin/master -m "Sync master into dev after release"
           git push origin dev
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
