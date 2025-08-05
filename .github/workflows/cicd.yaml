@@ -46,18 +46,64 @@ jobs:
           delete-branch: false
 
   auto-merge:
-    name: Auto-Merge PR
+    name: Enable Auto-Merge
     runs-on: ubuntu-latest
     needs: create-pr
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0  # Required to create full .git directory
-
-      - name: Auto-Merge with gh CLI
+      - name: Enable Auto-Merge (via gh api)
         run: |
-          gh pr merge ${{ needs.create-pr.outputs.pr_number }} --auto --squash
+          PR_ID=$(gh pr view ${{ needs.create-pr.outputs.pr_number }} --json id -q .id)
+          gh api graphql -f query='
+            mutation($prId: ID!) {
+              enablePullRequestAutoMerge(input: { pullRequestId: $prId, mergeMethod: SQUASH }) {
+                pullRequest { number }
+              }
+            }' -f prId=$PR_ID
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  wait-and-release:
+    name: Wait for merge → Release + Sync
+    runs-on: ubuntu-latest
+    needs: auto-merge
+
+    steps:
+      - name: Wait for master update
+        run: sleep 20  # Give GitHub time to merge PR into master
+
+      - name: Checkout master
+        uses: actions/checkout@v3
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: release-${{ steps.date.outputs.date }}
+          name: Release ${{ steps.date.outputs.date }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync master → dev
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+          git fetch origin dev || echo "No dev branch yet"
+
+          if git rev-parse origin/dev >/dev/null 2>&1; then
+            git checkout dev
+            git merge origin/master --no-ff --no-edit
+          else
+            git checkout -b dev
+          fi
+
+          git push origin dev
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
