@@ -4,16 +4,14 @@ on:
   push:
     branches:
       - dev
-      - master
       - dev-*
   pull_request:
     branches:
       - dev
-      - master
 
 jobs:
   test:
-    name: Run Pytest
+    name: Run Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -34,16 +32,14 @@ jobs:
         run: pytest
 
   merge-to-master:
-    name: Merge dev into master
+    name: Auto-merge dev into master
     needs: test
-    if: github.event_name == 'pull_request' && github.base_ref == 'dev' && github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev'  # Only on push to dev after test success
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          ref: dev
 
       - name: Set up Git user
         run: |
@@ -54,11 +50,11 @@ jobs:
         run: |
           git fetch origin master
           git checkout master
-          git merge --no-ff origin/dev -m "Auto-merge dev into master after PR"
+          git merge --no-ff origin/dev -m "Auto-merge dev into master from CI/CD"
           git push origin master
 
   release:
-    name: Release job after master merge
+    name: Create Release Tag
     needs: merge-to-master
     runs-on: ubuntu-latest
 
@@ -68,13 +64,17 @@ jobs:
         with:
           ref: master
 
-      - name: Release steps (example)
+      - name: Set up Git user
         run: |
-          echo "Release logic here, e.g., package, deploy, notify..."
-          # Example: create a tag
-          VERSION=$(date +'%Y.%m.%d-%H%M')
-          git tag "v$VERSION"
-          git push origin "v$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create Release Tag
+        run: |
+          DATE=$(date +'%Y-%m-%d')
+          TAG="release-${DATE}"
+          git tag "$TAG"
+          git push origin "$TAG"
 
   sync-dev:
     name: Sync master into dev
