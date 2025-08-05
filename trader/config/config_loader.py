@@ -46,7 +46,10 @@ class StrategySettings:
 
 @dataclass
 class MLSettings:
-    lookback: int = 30
+    windows: int = 30
+
+    buy_threshold = 0.6
+    sell_threshold = 0.4
 
     # model training
     early_stopping_logloss_threshold: float = 0.1
