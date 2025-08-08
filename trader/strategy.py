@@ -6,6 +6,8 @@ import re
 
 import joblib
 
+from mistune.plugins import math
+
 from trader.events import SignalEvent, EventType
 from collections import defaultdict
 from utilts.logs import logs
@@ -49,30 +51,28 @@ class MLSignalGenerator:
         if len(df) < self.train_window + 1:
             return 0  # Not enough data to train
 
-        # Split: train on [:-1], test on [-1] row
-        train_df = df.iloc[-(self.train_window + 1):-1]
-        test_df = df.iloc[-1:]
-
-        X_train = train_df[self.features]
-        y_train = train_df["Target"]
-        X_test = test_df[self.features]
+        X_test, X_train, y_train = self._split(df)
 
         self.model.fit(X_train, y_train)
         pred = self.model.predict(X_test)[0]
         self.trained = True
         return pred  # 1: Buy, 0: Hold/Sell
 
+    def _split(self, df):
+        # Split: train on [:-1], test on [-1] row
+        train_df = df.iloc[-(self.train_window + 1):-1]
+        test_df = df.iloc[-1:]
+        X_train = train_df[self.features]
+        y_train = train_df["Target"]
+        X_test = test_df[self.features]
+        return X_test, X_train, y_train
+
     def train_and_predict_proba(self, df: pd.DataFrame) -> float:
         df = self.prepare_features(df)
         if len(df) < self.train_window + 1:
             return 0.5  # Neutral probability if insufficient data
 
-        train_df = df.iloc[-(self.train_window + 1):-1]
-        test_df = df.iloc[-1:]
-
-        X_train = train_df[self.features]
-        y_train = train_df["Target"]
-        X_test = test_df[self.features]
+        X_test, X_train, y_train = self._split(df)
 
         self.model.fit(X_train, y_train)
         prob_up = self.model.predict_proba(X_test)[0][1]  # P(price up)
@@ -83,13 +83,13 @@ class MLStrategy(BaseStrategy):
     def __init__(self, events, settings: Settings, model=MLSignalGenerator):
         super().__init__(events, settings)
         self.prices = defaultdict(list)
-        self.window = settings.model.windows
+
         self.signal_generator = model()
         self.predictions = []  # (predicted, actual)
 
         self.current_position = "FLAT"  # or "LONG"
-        self.buy_threshold = self.settings.model.buy_threshold
-        self.sell_threshold = self.settings.model.sell_threshold
+
+        self.prob = settings.model.prob
 
     def on_market(self, event):
         if event.type != EventType.MARKET:
@@ -99,58 +99,81 @@ class MLStrategy(BaseStrategy):
         # Update the price history for each symbol
         self.prices[event.symbol].append(event)
 
-        if len(self.prices[event.symbol]) <= self.signal_generator.train_window + 1:
+        windows = self.settings.model.training_windows
+        if len(self.prices[event.symbol]) <= windows + 1:
+            logs.record_log(
+                f"Skipping {event} because there is not enough data ({len(self.prices[event.symbol])} < {windows})",
+                2
+            )
+
             return
 
         # 1. Feature generation
         df = self._bars_to_dataframe(self.prices[event.symbol])
 
-        # 2. Prediction
-        pred = self.signal_generator.train_and_predict(df)
+        signal_type = self._generate_signal(df)
+        if  signal_type=='HOLDING':
+            logs.record_log(f'holding prediction {event}', )
+            return  # error
+
+        signal = SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type=signal_type)
+        self.events.put(signal)
+
+    def _generate_signal(self, df):
+        signal = 'HOLD'
+        if self.prob:
+            pred = self.signal_generator.train_and_predict_proba(df)
+
+            if pred is None or math.isnan(pred):
+
+                return ''
+
+            # optional min confidence check
+            confidence = abs(pred - 0.5)
+            if 0< confidence <= self.settings.model.min_confidence_to_trade:
+                logs.record_log(f'skip because pred probability ={pred} with low confidence={confidence}')
+                return ''
+
+            # 3. Send Signal
+            if pred == 1 and self.current_position == "FLAT":
+                # Generate LONG signal
+
+                self.current_position = "LONG"
+                signal = 'BUY'
+            elif pred == 0 and self.current_position == "LONG":
+                # Generate EXIT signal
+
+                self.current_position = "FLAT"
+                signal = 'SELL'
+            # Else, hold position
+
+        else:
+            pred = self.signal_generator.train_and_predict(df)
+
+            if pred not in {1, 0, -1}:
+                logs.record_log('skip because pred is {pred}')
+                return signal
+            if pred == 1 and self.current_position == "FLAT":
+                signal = 'BUY'
+            elif pred == 0 and self.current_position == "LONG":
+                signal = 'SELL'
+                self.current_position = "FLAT"
+
         actual = df["Target"].iloc[-1]  # ground truth from last bar
         self.predictions.append((pred, actual))
 
-        # 3. Send Signal
-        if pred == 1 and self.current_position == "FLAT":
-            # Generate LONG signal
-            signal = SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type="BUY")
-            self.events.put(signal)
-            self.current_position = "LONG"
-        elif pred == 0 and self.current_position == "LONG":
-            # Generate EXIT signal
-            signal = SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type="SELL")
-            self.events.put(signal)
-            self.current_position = "FLAT"
-        # Else, hold position
-
-    def on_market_prediction(self, event):
-        if event.type != EventType.MARKET:
-            logs.record_log(f"Skipping {event}", 3)
-            return
-
-        # Update the price history for each symbol
-        self.prices[event.symbol].append(event)
-
-        if len(self.prices[event.symbol]) <= self.signal_generator.train_window + 1:
-            return
-        df = self._bars_to_dataframe(self.prices[event.symbol])
-        pred = self.signal_generator.train_and_predict_proba(df)
-        actual = df["Target"].iloc[-1]  # ground truth from last bar
-        self.predictions.append((pred, actual))
-
-        if pred >= self.buy_threshold and self.current_position == "FLAT":
-            # Generate LONG signal
-            signal = SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type="BUY")
-            self.events.put(signal)
-            self.current_position = "LONG"
-        elif pred == 0 and self.current_position == "LONG":
-            # Generate EXIT signal
-            signal = SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type="SELL")
-            self.events.put(signal)
-            self.current_position = "FLAT"
+        return signal
 
     def _bars_to_dataframe(self, lists):
-        return pd.DataFrame(lists)[["open", "high", "low", "close"]]
+
+        # ===== Feature Extraction =====
+        try:
+            # features = [getattr(event, feat) for feat in self.feature_list]
+            features = pd.DataFrame(lists)[["open", "high", "low", "close"]]
+        except AttributeError as e:
+            raise ValueError(f"Missing feature in MarketEvent: {e}")
+
+        return features
 
 
 class Strategy(BaseStrategy):

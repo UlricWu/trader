@@ -154,10 +154,10 @@ class Portfolio:
                 message = f"SIGNAL={direction} {symbol} fail at quantity={quantity} because of not enough holdings {self.positions}"
                 logs.record_log(message=message, level=3)
                 return
-        else:
-            message = f"Unknown signal type: {direction} for {symbol} holding {self.positions} at {signal_event.datetime}  "
-            logs.record_log(message=message, level=3)
-            return
+        # elif direction == 'HOLDING':
+        #     message = f"Unknown signal type: {direction} for {symbol} holding {self.positions} at {signal_event.datetime}  "
+        #     logs.record_log(message=message, level=3)
+        #     return
 
         self.events.put(OrderEvent(symbol, "MKT", quantity, direction, signal_event.datetime))
 
@@ -201,6 +201,8 @@ class Portfolio:
             self.realized_pnl[symbol] = self.realized_pnl.get(symbol, 0.0) + realized_pnl
             self.cash += cost - commission
             event.commission = commission
+        else:
+            return
 
         position.update_on_fill(event)
 
