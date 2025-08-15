@@ -8,76 +8,76 @@ on:
     branches:
       - 'master'
 jobs:
-#  auto-merge-dev-to-master:
-#    name: Auto Merge dev → master
-#    runs-on: ubuntu-latest
-#    #    needs: test
-#    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev')  # Only on push to dev
-#    steps:
-#      - name: Checkout repo
-#        uses: actions/checkout@v4
-#        with:
-#          fetch-depth: 0
-#      - name: Fetch master
-#        run: git fetch origin master:master
-#      - name: Checkout dev
-#        run: git checkout dev
-#
-#      - name: Create Pull Request
-#        uses: peter-evans/create-pull-request@v6
-#        with:
-#          token: ${{ secrets.PAT_TOKEN }}
-#          branch: auto-merge-dev-to-master
-#          title: 'Automated merge from dev to master'
-#          body: 'This PR was automatically created by GitHub Actions.'
-#
-#      - name: Create PR
-#        run: |
-#          gh pr create \
-#            --base master \
-#            --head dev \
-#            --title "Auto merge dev to master" \
-#            --body "Automated merge from dev to master"
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#
-#      - name: Merge PR
-#        run: gh pr merge --merge --auto
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #  auto-merge-dev-to-master:
+  #    name: Auto Merge dev → master
+  #    runs-on: ubuntu-latest
+  #    #    needs: test
+  #    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev')  # Only on push to dev
+  #    steps:
+  #      - name: Checkout repo
+  #        uses: actions/checkout@v4
+  #        with:
+  #          fetch-depth: 0
+  #      - name: Fetch master
+  #        run: git fetch origin master:master
+  #      - name: Checkout dev
+  #        run: git checkout dev
+  #
+  #      - name: Create Pull Request
+  #        uses: peter-evans/create-pull-request@v6
+  #        with:
+  #          token: ${{ secrets.PAT_TOKEN }}
+  #          branch: auto-merge-dev-to-master
+  #          title: 'Automated merge from dev to master'
+  #          body: 'This PR was automatically created by GitHub Actions.'
+  #
+  #      - name: Create PR
+  #        run: |
+  #          gh pr create \
+  #            --base master \
+  #            --head dev \
+  #            --title "Auto merge dev to master" \
+  #            --body "Automated merge from dev to master"
+  #        env:
+  #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #
+  #      - name: Merge PR
+  #        run: gh pr merge --merge --auto
+  #        env:
+  #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   #      - name: Checkout code
-#        uses: actions/checkout@v3
-#
-#      - name: Checkout full repo
-#        uses: actions/checkout@v4
-#        with:
-#          fetch-depth: 0   # Important: fetch all history and branches
-#
-#      - name: Configure Git for GitHub Actions
-#        run: |
-#          git config --global user.name 'github-actions[bot]'
-#          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-#
-#      - name: Fetch master branch
-#        run: git fetch origin master:master
-#
-#      - name: Checkout master
-#        run: git checkout master
-#
-#      - name: Merge dev into master
-#        run: git merge origin/dev -X theirs --no-edit --allow-unrelated-histories --no-ff --commit -m "Auto-merge dev into master"
-#
-#      - name: Merge dev into master
-#        run: |
-#
-#          git push origin master
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #        uses: actions/checkout@v3
+  #
+  #      - name: Checkout full repo
+  #        uses: actions/checkout@v4
+  #        with:
+  #          fetch-depth: 0   # Important: fetch all history and branches
+  #
+  #      - name: Configure Git for GitHub Actions
+  #        run: |
+  #          git config --global user.name 'github-actions[bot]'
+  #          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+  #
+  #      - name: Fetch master branch
+  #        run: git fetch origin master:master
+  #
+  #      - name: Checkout master
+  #        run: git checkout master
+  #
+  #      - name: Merge dev into master
+  #        run: git merge origin/dev -X theirs --no-edit --allow-unrelated-histories --no-ff --commit -m "Auto-merge dev into master"
+  #
+  #      - name: Merge dev into master
+  #        run: |
+  #
+  #          git push origin master
+  #        env:
+  #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   create-auto-pr:
     name: Create Auto-Merge PR dev → master
     runs-on: ubuntu-latest
-#    needs: test
+    #    needs: test
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev')  # Only on push to dev
 
     outputs:
@@ -90,26 +90,33 @@ jobs:
           fetch-depth: 0
           ref: dev
 
-      - name: Fetch all branches
-        run: git fetch origin
+
       - name: Configure Git for GitHub Actions
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
+      - name: Delete existing temp branch if exists
+        run: git push origin --delete auto-merge-dev-to-master || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+
       - name: Create temp branch from master and merge dev
         run: |
-            git checkout -b auto-merge-dev-to-master origin/master
-            git merge origin/dev --no-ff --no-edit || true
+          git fetch origin  
+          git checkout -b auto-merge-dev-to-master origin/master
+          git merge origin/dev --no-ff --no-edit || true
           
-            # If no new commits compared to master, add dummy commit
-            if [ -z "$(git log origin/master..HEAD --oneline)" ]; then
-              echo "Dummy commit to force PR creation" > dummy.txt
-              git add dummy.txt
-              git commit -m "chore: dummy commit to force PR creation"
-            fi
+          # If no new commits compared to master, add dummy commit
+          if [ -z "$(git log origin/master..HEAD --oneline)" ]; then
+            echo "Dummy commit to force PR creation" > dummy.txt
+            git add dummy.txt
+            git commit -m "chore: dummy commit to force PR creation"
+          fi
           
-            git push origin auto-merge-dev-to-master --force
+          git push origin auto-merge-dev-to-master --force
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
