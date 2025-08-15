@@ -108,31 +108,27 @@ class Portfolio:
     def update_price(self, market_event: MarketEvent):
         self.current_prices[market_event.symbol] = market_event.close
 
-    # def update_price(self, market_event: MarketEvent):
-    #     symbol = market_event.symbol
-    #     price = market_event.close
-    #     self.current_prices[symbol] = price
-    #
-    #     # Record account-level equity
-    #     total_equity = self.cash + sum(
-    #         pos.quantity * self.current_prices.get(pos.symbol, 0)
-    #         for pos in self.positions.values()
-    #     )
-    #     self.history.append((market_event.datetime, total_equity))
-    #
-    #     # Record per-symbol equity: symbol_value + allocated cash (set to 0 if you want)
-    #     pos = self.positions.get(symbol)
-    #     symbol_value = pos.quantity * price if pos else 0.0
-    #     if symbol not in self.symbol_equity_history:
-    #         self.symbol_equity_history[symbol] = []
-    #     self.symbol_equity_history[symbol].append((market_event.datetime, symbol_value))
+    @property
+    def equity(self):
+        equity = self.cash
+        for symbol, position in self.positions.items():
+            price = self.current_prices.get(symbol, 0)
+            equity += position.quantity * price
+        return equity
 
     @property
-    def symbol_equity_dfs(self) -> Dict[str, pd.DataFrame]:
-        return {
-            symbol: pd.DataFrame(history, columns=["datetime", "equity"]).set_index("datetime")
-            for symbol, history in self.symbol_equity_history.items()
-        }
+    def equity_df(self):
+        return pd.DataFrame(self.history, columns=["datetime", "equity"]).set_index("datetime")
+
+    @property
+    def symbol_equity_df(self) -> Dict[str, pd.DataFrame]:
+        retuslts = []
+        for symbol, history in self.symbol_equity_history.items():
+            df = pd.DataFrame(history, columns=["datetime", symbol]).set_index("datetime").dropna()
+            df = df[df[symbol] != 0].sort_index()
+            retuslts.append(df)
+
+        return pd.concat(retuslts)
 
     def on_signal(self, signal_event: SignalEvent):
         symbol = signal_event.symbol
@@ -154,10 +150,10 @@ class Portfolio:
                 message = f"SIGNAL={direction} {symbol} fail at quantity={quantity} because of not enough holdings {self.positions}"
                 logs.record_log(message=message, level=3)
                 return
-        else:
-            message = f"Unknown signal type: {direction} for {symbol} holding {self.positions} at {signal_event.datetime}  "
-            logs.record_log(message=message, level=3)
-            return
+        # elif direction == 'HOLDING':
+        #     message = f"Unknown signal type: {direction} for {symbol} holding {self.positions} at {signal_event.datetime}  "
+        #     logs.record_log(message=message, level=3)
+        #     return
 
         self.events.put(OrderEvent(symbol, "MKT", quantity, direction, signal_event.datetime))
 
@@ -194,6 +190,10 @@ class Portfolio:
             # if position.total_buy_quantity < 0:
             #     logs.record_log(f"not enough quantity to sell {event}")
             #     return
+
+            if position.total_buy_quantity == 0:
+                logs.record_log(f'error selling {position} event={event}')
+                return
             buy_fee_applied = (quantity / position.total_buy_quantity) * position.total_buy_commission
             gross_pnl = (price - position.avg_price) * quantity
             realized_pnl = gross_pnl - buy_fee_applied - commission
@@ -201,6 +201,8 @@ class Portfolio:
             self.realized_pnl[symbol] = self.realized_pnl.get(symbol, 0.0) + realized_pnl
             self.cash += cost - commission
             event.commission = commission
+        else:
+            return
 
         position.update_on_fill(event)
 
@@ -226,18 +228,6 @@ class Portfolio:
         #     'price': event.price,
         #     'quantity': event.quantity
         # })
-
-    @property
-    def equity(self):
-        equity = self.cash
-        for symbol, position in self.positions.items():
-            price = self.current_prices.get(symbol, 0)
-            equity += position.quantity * price
-        return equity
-
-    @property
-    def equity_df(self):
-        return pd.DataFrame(self.history, columns=["datetime", "equity"]).set_index("datetime")
 
     def calculate_quantity(self, price):
         risk_amount = self.cash * self.risk_pct
@@ -277,4 +267,6 @@ class Portfolio:
         for symbol, value in holdings_value.items():
             if symbol not in self.symbol_equity_history:
                 self.symbol_equity_history[symbol] = []
+            if not value:
+                continue
             self.symbol_equity_history[symbol].append((date, value))

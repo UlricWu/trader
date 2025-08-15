@@ -6,10 +6,11 @@
 # @Time    : 2025/4/16 17:31
 
 import pytest
-from trader.events import MarketEvent, EventType,SignalEvent
+from trader.events import MarketEvent, EventType, SignalEvent
 from trader.strategy import Strategy
 from queue import Queue
 from datetime import datetime
+
 
 def test_simple_strategy_signal_generation(event_queue, default_settings):
     strategy = Strategy(events=event_queue, settings=default_settings)
@@ -20,6 +21,7 @@ def test_simple_strategy_signal_generation(event_queue, default_settings):
     signal = event_queue.get()
     assert isinstance(signal, SignalEvent)
     assert signal.symbol == "AAPL"
+
 
 def test_strategy_signal_emits_buy(event_queue, default_settings):
     strategy = Strategy(event_queue, settings=default_settings)
@@ -37,6 +39,7 @@ def test_strategy_signal_emits_buy(event_queue, default_settings):
 
     assert "BUY" in signals
 
+
 def test_strategy_no_signal_if_not_enough_data(event_queue, default_settings):
     strategy = Strategy(events=event_queue, settings=default_settings)
     prices = [100, 101, 102]  # = default_settings.trading.windows 3
@@ -44,6 +47,7 @@ def test_strategy_no_signal_if_not_enough_data(event_queue, default_settings):
         event = MarketEvent(datetime=datetime(2023, 1, 1), symbol="MSFT", open=0, high=0, low=0, close=price)
         strategy.on_market(event)
     assert not event_queue.empty()
+
 
 #
 import pandas as pd

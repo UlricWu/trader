@@ -13,22 +13,18 @@ from utilts.logs import logs
 
 
 class Backtest:
-    def __init__(self, data, settings: Settings):
+    def __init__(self, data, settings: Settings, strategy=Strategy):
         self.events = Queue()
 
         self.data_handler = DailyBarDataHandler(data=data, events=self.events, settings=settings)
-        self.strategy = Strategy(self.events, settings=settings)
+        self.strategy = strategy(self.events, settings=settings)
         self.execution_handler = ExecutionHandler(self.events, settings=settings)
         self.portfolio = Portfolio(self.events, settings=settings)
 
-        # Strategy, Execution Handler, and Portfolio
-        # self.strategy = get_strategy(self.events)
-        # self.strategy = strategy_cls(self.events)  # avoid hardcoding
         if not len(data):
             logs.record_log("策略初始化异常，数据为空", 3)
             return
         logs.record_log("策略初始化完成")
-        # self.portfolio = Portfolio(self.events, initial_cash)
 
     def run(self):
         """Run the backtest loop."""
@@ -66,13 +62,24 @@ class Backtest:
                 else:
                     message = f"backtest Unknown event type: {type(event)}"
                     logs.record_log(message, 3)
-            # print(event)
             self.portfolio.record_daily_snapshot(event.datetime)
-
-        # for date, equity in self.portfolio.history:
-        #     print(date, equity)
 
     def plot_equity_curve(self):
         self.portfolio.equity_df.plot(title="Equity Curve", figsize=(10, 5))
         plt.ylabel("Equity")
         plt.show()
+
+    def summary(self):
+        if self.strategy and hasattr(self.strategy, "predictions"):
+            preds = self.strategy.predictions
+            if preds:
+                correct = sum(1 for p, a in preds if p == a)
+                accuracy = correct / len(preds)
+                print(f"ML Prediction Accuracy: {accuracy:.2%} ({correct}/{len(preds)})")
+
+            # if preds:
+            #     correct = sum(1 for prob, a in preds if (prob >= 0.5) == a)
+            #     accuracy = correct / len(preds)
+            #     avg_conf = sum(abs(prob - 0.5) for prob, _ in preds) / len(preds) * 2
+            #     print(f"ML Prediction Accuracy: {accuracy:.2%} ({correct}/{len(preds)})")
+            #     print(f"Avg Prediction Confidence: {avg_conf:.2%}")
