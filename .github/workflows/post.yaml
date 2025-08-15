@@ -108,9 +108,8 @@ jobs:
           git fetch origin  
           git checkout -b auto-merge-dev-to-master origin/master
           git merge origin/dev --no-ff --no-edit || true
-          
-# Always create a dummy commit to force PR creation
-          echo "Auto dummy commit $(date +%s)" > dummy.txt
+        
+          echo "Auto dummy commit $(date +%s)" > dummy.txt # Always create a dummy commit to force PR creation
           git add dummy.txt
           git commit -m "chore: dummy commit $(date +%s)"
           
