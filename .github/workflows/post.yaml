@@ -105,7 +105,9 @@ jobs:
 
       - name: Create temp branch from master and merge dev
         run: |
-          git fetch origin  
+          git fetch origin master:master
+          git fetch origin dev:dev
+    
           git checkout -b auto-merge-dev-to-master origin/master
           git merge origin/dev --no-ff --no-edit || true
         
@@ -125,7 +127,7 @@ jobs:
           branch: auto-merge-dev-to-master
           title: 'Auto PR: dev → master'
           body: Auto-generated PR to merge dev into master
-          delete-branch: true
+          delete-branch: false
 
   auto-merge-pr:
     name: Enable Auto-Merge
