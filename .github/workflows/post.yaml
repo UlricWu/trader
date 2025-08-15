@@ -109,12 +109,10 @@ jobs:
           git checkout -b auto-merge-dev-to-master origin/master
           git merge origin/dev --no-ff --no-edit || true
           
-          # If no new commits compared to master, add dummy commit
-          if [ -z "$(git log origin/master..HEAD --oneline)" ]; then
-            echo "Dummy commit to force PR creation" > dummy.txt
-            git add dummy.txt
-            git commit -m "chore: dummy commit to force PR creation"
-          fi
+# Always create a dummy commit to force PR creation
+          echo "Auto dummy commit $(date +%s)" > dummy.txt
+          git add dummy.txt
+          git commit -m "chore: dummy commit $(date +%s)"
           
           git push origin auto-merge-dev-to-master --force
         env:
