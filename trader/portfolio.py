@@ -209,6 +209,10 @@ class Portfolio:
             # if position.total_buy_quantity < 0:
             #     logs.record_log(f"not enough quantity to sell {event}")
             #     return
+
+            if position.total_buy_quantity == 0:
+                logs.record_log(f'error selling {position} event={event}')
+                return
             buy_fee_applied = (quantity / position.total_buy_quantity) * position.total_buy_commission
             gross_pnl = (price - position.avg_price) * quantity
             realized_pnl = gross_pnl - buy_fee_applied - commission

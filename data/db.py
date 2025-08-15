@@ -126,6 +126,24 @@ def load_and_normalize_data(df: pd.DataFrame, adjustment=None) -> pd.DataFrame:
         return df
 
 
+def extract_codes(database="tutorial.db", table='daily', end_day=None, start_day=None):
+    if not end_day:
+        end_day = datetime.today().strftime('%Y%m%d')
+    if not start_day:
+        start_day = end_day
+
+    if int(start_day) > int(end_day):
+        raise ValueError(f"start_day={start_day} >day={end_day}")
+
+    sql = f"select  ts_code from {table} where  trade_date =  (select trade_date from {table} order by trade_date desc limit 1)"
+
+    with Database(database) as db:
+        if not check_table(table=table, database=database):
+            logs.record_log(f"Table {table} does not exist")
+
+        return db.query(sql)
+
+
 def extract_table(database="tutorial.db", table='daily', end_day=None, start_day=None, pandas=True, ts_code=None):
     if not end_day:
         end_day = datetime.today().strftime('%Y%m%d')

@@ -74,26 +74,11 @@ class PerformanceAnalyzer:
 
         # 1. Equity curve
         ax = axes[0]
-        for sym, s in summary.items():
-            ax.plot(s["equity"].index, s["equity"].values, label=sym)
-
-        ax.set_title("Equity Curve")
-        ax.set_ylabel("Equity Value")
-        ax.grid(True)
-        ax.legend()
+        self._plot_equity_curve(ax, summary)
 
         ax = axes[1]
 
-        # dd_acc = acount_summary["equity"] / acount_summary["equity"].cummax() - 1
-        # ax.fill_between(dd_acc.index, dd_acc.values, label="ACCOUNT DD", color="black")
-
-        for sym, s in summary.items():
-            dd = s["equity"] / s["equity"].cummax() - 1
-            if sym == 'account':
-                continue
-            ax.fill_between(dd.index, dd.values * 100, label=sym, alpha=0.3)
-        ax.set_title("Drawdowns")
-        ax.legend()
+        self._plot_drawdown(ax, summary)
 
         ax = axes[2]
         self._plot_stats_table(ax, summary)
@@ -108,6 +93,42 @@ class PerformanceAnalyzer:
 
         plt.tight_layout()
         plt.show()
+
+
+    def _plot_drawdown(self, ax, summary):
+        for sym, s in summary.items():
+            dd = s["equity"] / s["equity"].cummax() - 1
+            if sym == 'account':
+                continue
+            ax.fill_between(dd.index, dd.values * 100, label=sym, alpha=0.3)
+        ax.set_title("Drawdowns")
+        ax.legend()
+
+    def _plot_equity_curve(self, ax, summary):
+        if ax is None:
+            ax = plt.gca()
+        for c in self._equity_curve(summary):
+            ax.plot(**c)
+        ax.set_title("Equity Curve")
+        ax.set_ylabel("Equity Value")
+        ax.grid(True)
+        ax.legend()
+
+    def _equity_curve(self, summary):
+        curve = []
+
+        for sym, s in summary.items():
+            c = {'x': s["equity"].index, 'y': (s["equity"].values,), 'label': sym}
+            curve.append(c)
+        return curve
+
+    def _equity_df(self, summary):
+        lst = []
+        for sym, s in summary.items():
+            temp = s['equity'].copy()
+            temp.name = sym
+            lst.append(temp)
+        return pd.concat(lst, axis=1)
 
     @staticmethod
     def _plot_monthly_returns(ax, stats_dict: dict):
@@ -132,6 +153,17 @@ class PerformanceAnalyzer:
     def _plot_stats_table(ax, stats_dict: dict):
         if ax is None:
             ax = plt.gca()
+        table_df = PerformanceAnalyzer._stats_table(stats_dict)
+        ax.axis("off")
+        table = ax.table(cellText=table_df.values,
+                         colLabels=table_df.columns,
+                         loc="center")
+        table.auto_set_font_size(False)
+        table.set_fontsize(9)
+        table.scale(1.1, 1.3)
+
+    @staticmethod
+    def _stats_table(stats_dict):
         table_data = []
         for sym, s in stats_dict.items():
             table_data.append([
@@ -147,13 +179,7 @@ class PerformanceAnalyzer:
             "Symbol", "Annual Return", "Volatility",
             "Sharpe", "Max DD", "Max DD Duration"
         ])
-        ax.axis("off")
-        table = ax.table(cellText=table_df.values,
-                         colLabels=table_df.columns,
-                         loc="center")
-        table.auto_set_font_size(False)
-        table.set_fontsize(9)
-        table.scale(1.1, 1.3)
+        return table_df
 
     # def export_metrics(self, filepath: str = '') -> None:
     #     import json

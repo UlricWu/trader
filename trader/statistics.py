@@ -113,7 +113,7 @@ def cumulative_returns(equity) -> float:
     equity = _ensure_series(equity)
     daily_ret = daily_returns(equity)
     cum = (1 + daily_ret).cumprod() - 1
-    return round_float(cum[0])
+    return round_float(cum)
 
 
 def max_drawdown_and_duration(equity) -> dict:
