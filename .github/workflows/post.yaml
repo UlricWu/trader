@@ -9,7 +9,6 @@ jobs:
   create-pr:
     name: Create PR dev → master
     runs-on: ubuntu-latest
-    needs: test
     if: github.ref == 'refs/heads/dev'
     outputs:
       pr_number: ${{ steps.cpr.outputs.pull-request-number }}
