@@ -90,12 +90,13 @@ jobs:
           fetch-depth: 0
           ref: dev
 
-      - name: Fetch master
-        run: git fetch origin master:master
+      - name: Fetch dev
+        run: git fetch origin dev:dev
 
-      - name: Create temporary auto-merge branch
+      - name: Create temp branch from master and merge dev
         run: |
           git checkout -b auto-merge-dev-to-master
+          git merge dev --no-ff --no-edit || true
           git push origin auto-merge-dev-to-master --force
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -144,7 +145,7 @@ jobs:
     needs: auto-merge-pr
     steps:
       - name: Wait 30 seconds
-        run: sleep 30
+        run: sleep 10
 
   release:
     name: Release on master
