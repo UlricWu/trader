@@ -92,7 +92,10 @@ jobs:
 
       - name: Fetch all branches
         run: git fetch origin
-
+      - name: Configure Git for GitHub Actions
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
       - name: Create temp branch from master and merge dev
         run: |
