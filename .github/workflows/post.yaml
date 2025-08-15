@@ -18,16 +18,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Checkout full repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # Important: fetch all history and branches
+
       - name: Configure Git for GitHub Actions
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
+      - name: Fetch master branch
+        run: git fetch origin master:master
+
+      - name: Checkout master
+        run: git checkout master
+
+      - name: Merge dev into master
+        run: git merge origin/dev -X theirs --no-edit --allow-unrelated-histories --no-ff --commit -m "Auto-merge dev into master"
+
       - name: Merge dev into master
         run: |
-          git fetch origin dev
-          git checkout master
-          git merge origin/dev -X theirs --no-edit --allow-unrelated-histories
+
           git push origin master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
