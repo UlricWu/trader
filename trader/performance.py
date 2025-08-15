@@ -4,22 +4,20 @@
 # @Project : trader
 # @Author  : wsw
 # @Time    : 2025/4/22 10:46
+import itertools
 import json
 import os
-from datetime import datetime
 
-import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
-from pandas import DataFrame
 
 from typing import Dict, Optional, List, Callable, Union
 
 # !performance.py
 from typing import Callable, Dict, List, Any
 import pandas as pd
-import numpy as np
 from datetime import datetime
+import trader.statistics as stats
+import seaborn as sns
 
 
 class PerformanceAnalyzer:
@@ -31,150 +29,146 @@ class PerformanceAnalyzer:
     Return is the percentage change between prices.
     """
 
-    def __init__(self, portfolio, metrics: Dict[str, Callable] = None, symbol_metrics: Dict[str, Callable] = None):
+    def __init__(self, portfolio, bench=None):
         #         Parameters:
         #         - portfolio: A backtested portfolio object with attributes:
         #             - equity_curve: pd.DataFrame with 'date', 'account_value', 'returns'
-        #             - positions: Dict[symbol -> position data]
 
         self.portfolio = portfolio
         self.equity_df = portfolio.equity_df
-        self.realized_pnl = portfolio.realized_pnl
-        self.metrics = metrics or self._default_metrics()
-        self.symbol_metrics = symbol_metrics or self._default_symbol_metrics()
+        self.bench = bench
 
-    # =========================
-    # Public Summary Interface
-    # =========================
-    def account_summary(self) -> Dict[str, float]:
-        return {name: func() for name, func in self.metrics.items()}
+    def summary(self, equity=None):
+        if equity is None:
+            equity = self.portfolio.symbol_equity_df
 
-    def symbol_summary(self) -> Dict[str, Dict[str, float]]:
-        summary = {}
-        for symbol in self.realized_pnl.keys():
-            summary[symbol] = {name: func(symbol) for name, func in self.symbol_metrics.items()}
-        return summary
+        results = {'account': self._summary(equity.sum(axis=1))}
+        for col in equity.columns:
+            e = equity[col]
+            results[col] = self._summary(e)
 
-    def summary(self) -> Dict[str, Union[Dict[str, float], Dict[str, Dict[str, float]]]]:
+        return results
+
+    def _summary(self, e):
+        daily = stats.daily_returns(e)
+        max_dd, dd_dur = stats.max_drawdown_and_duration(e)
+        sharpe = stats.sharpe_ratio(e)
         return {
-            "account": self.account_summary(),
-            "per_symbol": self.symbol_summary()
+            "equity": e,
+            "returns": daily,
+            "sharpe": sharpe,
+            "max_dd": max_dd,
+            "max_ddduration": dd_dur,
+            "volatility": stats.volatility(e),
+            "annual_return": stats.annual_returns(e),
+            "total_return": stats.cumulative_returns(e)
         }
 
-    # ========================
-    # Default Metric Definitions
-    # ========================
+    def plot(self):
 
-    def _default_metrics(self) -> Dict[str, Callable]:
-        return {
-            "total_return": self.total_return,
-            "max_drawdown": self.compute_max_drawdown,
-            "sharpe_ratio": self.sharpe_ratio,
-            "final_equity": lambda: self.equity_df["equity"].iloc[-1] if not self.equity_df.empty else 0.0,
-            "initial_cash": lambda: self.portfolio.settings.trading.INITIAL_CASH,
-            "total_realized_pnl": lambda: round(sum(self.realized_pnl.values()), 2),
-            "annualized_return": self.annualized_return
-        }
+        summary = self.summary()
 
-    def _default_symbol_metrics(self) -> Dict[str, Callable]:
-        return {
-            "realized_pnl": lambda s: round(self.realized_pnl.get(s, 0.0), 2),
-            "trade_count": lambda s: len([t for t in self.portfolio.transactions if t.symbol == s]),
-            "total_volume": lambda s: sum(t.quantity for t in self.portfolio.transactions if t.symbol == s),
-            "max_drawdown": lambda s: self.compute_max_drawdown(s),
-            "annualized_return": lambda s: self.annualized_return(s)
-        }
+        n_symbols = len(summary.keys())
+        n_panels = 3  # Equity, Drawdown, table, Monthly Returns
+        fig, axes = plt.subplots(n_panels + n_symbols, 1, figsize=(12, 8))
 
-    # ========================
-    # Unified Metric Functions
-    # ========================
-    def _compute_total_return(self, df: DataFrame) -> float:
-        if df.empty:
-            return 0.0
-        start_value = df["equity"].iloc[0]
-        end_value = df["equity"].iloc[-1]
-        return round((end_value - start_value) / start_value, 6)
+        # 1. Equity curve
+        ax = axes[0]
+        for sym, s in summary.items():
+            ax.plot(s["equity"].index, s["equity"].values, label=sym)
 
-    def _compute_annualized_return(self, df: DataFrame) -> float:
-        total_return = self._compute_total_return(df)
-        days = len(df)
-        annual_factor = 252 / days
-        annualized_return = (1 + total_return) ** annual_factor - 1
-        return round(annualized_return, 6)
+        ax.set_title("Equity Curve")
+        ax.set_ylabel("Equity Value")
+        ax.grid(True)
+        ax.legend()
 
-    def annualized_return(self, symbol: str = None) -> float:
-        if symbol is None:
-            df = self.portfolio.equity_df
-        else:
-            df = self.portfolio.symbol_equity_dfs.get(symbol)
-        if df is None or df.empty or len(df) < 2:
-            return 0.0
-        return self._compute_annualized_return(df)
+        ax = axes[1]
 
-    def total_return(self, symbol: str = None) -> float:
-        """Overall % change over the period"""
-        if symbol is None:
-            df = self.portfolio.equity_df
-        else:
-            df = self.portfolio.symbol_equity_dfs.get(symbol)
-        if df is None or df.empty or len(df) < 2:
-            return 0.0
+        # dd_acc = acount_summary["equity"] / acount_summary["equity"].cummax() - 1
+        # ax.fill_between(dd_acc.index, dd_acc.values, label="ACCOUNT DD", color="black")
 
-        return self._compute_total_return(df)
+        for sym, s in summary.items():
+            dd = s["equity"] / s["equity"].cummax() - 1
+            if sym == 'account':
+                continue
+            ax.fill_between(dd.index, dd.values * 100, label=sym, alpha=0.3)
+        ax.set_title("Drawdowns")
+        ax.legend()
 
-    def _compute_max_drawdown(self, df: DataFrame) -> float:
+        ax = axes[2]
+        self._plot_stats_table(ax, summary)
 
-        cummax = df["equity"].cummax()
-        drawdown = df["equity"] / cummax - 1.0
-        return round(drawdown.min(), 6)
+        # 3. Monthly returns: one heatmap per symbol
 
-    def compute_max_drawdown(self, symbol: str = None) -> float:
-        if symbol is None:
-            df = self.portfolio.equity_df
-        else:
-            df = self.portfolio.symbol_equity_dfs.get(symbol)
-        if df is None or df.empty or len(df) < 2:
-            return 0.0
-        return self._compute_max_drawdown(df)
+        for idx, (sym, s) in enumerate(summary.items()):
+            ax = axes[n_panels + idx]
 
-    def _compute_daily_returns(self, series: pd.Series) -> pd.Series:
-        return series.pct_change().dropna() if not series.empty else pd.Series(dtype=float)
+            ax.set_title(f"Monthly Returns Heatmap - {sym}")
+            self._plot_monthly_returns(ax, s)
 
-    def daily_returns(self, symbol: str = None) -> pd.Series:
-        if symbol is None:
-            series = self.portfolio.equity_df
-        else:
-            series = self.portfolio.symbol_equity_dfs.get(symbol)
-        if series is None or series.empty or len(series) < 2:
-            return 0.0
+        plt.tight_layout()
+        plt.show()
 
-        return self._compute_daily_returns(series)
+    @staticmethod
+    def _plot_monthly_returns(ax, stats_dict: dict):
+        if ax is None:
+            ax = plt.gca()
 
-    def sharpe_ratio(self, symbol: str = None, risk_free_rate=0.0) -> float:
-        daily_returns = self.daily_returns(symbol)
-        if daily_returns.empty:
-            return 0.0
-        excess = daily_returns - risk_free_rate / 252
-        sharpe = round(excess.mean() / excess.std() * (252 ** 0.5), 4)
-        return sharpe.iloc[0]  # pd.series->float
+        month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-#     # ================== Extensibility ==================
+        monthly_returns_df = stats_dict["returns"].resample("ME").apply(lambda x: (1 + x).prod() - 1).to_frame("Return")
 
+        monthly_returns_df["Year"] = monthly_returns_df.index.year
+        monthly_returns_df["Month"] = monthly_returns_df.index.strftime("%b")
 
-# #     def export_metrics(self, filepath: str = '') -> None:
-# #         import json
-# #         summary = self.summary()
-# #
-# #         if not filepath:
-# #             filepath = "stats/performance.json"
-# #         os.makedirs(os.path.dirname(filepath), exist_ok=True)
-# #         export_record = {
-# #             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-# #             **summary,
-# #         }
-# #
-# #         with open(filepath, "w") as f:
-# #             json.dump(export_record, f, indent=2)
+        pivot_table = monthly_returns_df.pivot(index="Year", columns="Month", values="Return")
+        pivot_table = pivot_table.reindex(columns=month_order)
+
+        sns.heatmap(pivot_table, annot=True, fmt=".1%", center=0,
+                    cmap="RdYlGn", ax=ax, cbar=False)
+
+    @staticmethod
+    def _plot_stats_table(ax, stats_dict: dict):
+        if ax is None:
+            ax = plt.gca()
+        table_data = []
+        for sym, s in stats_dict.items():
+            table_data.append([
+                sym,
+                # s['cum_returns'] * 100,
+                s['annual_return'],
+                s['volatility'],
+                s['sharpe'],
+                s['max_dd'],
+                s['max_ddduration']
+            ])
+        table_df = pd.DataFrame(table_data, columns=[
+            "Symbol", "Annual Return", "Volatility",
+            "Sharpe", "Max DD", "Max DD Duration"
+        ])
+        ax.axis("off")
+        table = ax.table(cellText=table_df.values,
+                         colLabels=table_df.columns,
+                         loc="center")
+        table.auto_set_font_size(False)
+        table.set_fontsize(9)
+        table.scale(1.1, 1.3)
+
+    # def export_metrics(self, filepath: str = '') -> None:
+    #     import json
+    #     summary = self.summary()
+    #
+    #     if not filepath:
+    #         filepath = "stats/performance.json"
+    #     os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    #     export_record = {
+    #         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    #         **summary,
+    #     }
+    #
+    #     with open(filepath, "w") as f:
+    #         json.dump(export_record, f, indent=2)
 # #
 # #     def notify(self):
 # #         summary = self.summary()

@@ -128,11 +128,26 @@ class Portfolio:
     #     self.symbol_equity_history[symbol].append((market_event.datetime, symbol_value))
 
     @property
-    def symbol_equity_dfs(self) -> Dict[str, pd.DataFrame]:
-        return {
-            symbol: pd.DataFrame(history, columns=["datetime", "equity"]).set_index("datetime")
-            for symbol, history in self.symbol_equity_history.items()
-        }
+    def equity(self):
+        equity = self.cash
+        for symbol, position in self.positions.items():
+            price = self.current_prices.get(symbol, 0)
+            equity += position.quantity * price
+        return equity
+
+    @property
+    def equity_df(self):
+        return pd.DataFrame(self.history, columns=["datetime", "equity"]).set_index("datetime")
+
+    @property
+    def symbol_equity_df(self) -> Dict[str, pd.DataFrame]:
+        retuslts = []
+        for symbol, history in self.symbol_equity_history.items():
+            df = pd.DataFrame(history, columns=["datetime", symbol]).set_index("datetime").dropna()
+            df = df[df[symbol] != 0].sort_index()
+            retuslts.append(df)
+
+        return pd.concat(retuslts)
 
     def on_signal(self, signal_event: SignalEvent):
         symbol = signal_event.symbol
@@ -229,18 +244,6 @@ class Portfolio:
         #     'quantity': event.quantity
         # })
 
-    @property
-    def equity(self):
-        equity = self.cash
-        for symbol, position in self.positions.items():
-            price = self.current_prices.get(symbol, 0)
-            equity += position.quantity * price
-        return equity
-
-    @property
-    def equity_df(self):
-        return pd.DataFrame(self.history, columns=["datetime", "equity"]).set_index("datetime")
-
     def calculate_quantity(self, price):
         risk_amount = self.cash * self.risk_pct
         quantity = int(risk_amount // price)
@@ -279,4 +282,6 @@ class Portfolio:
         for symbol, value in holdings_value.items():
             if symbol not in self.symbol_equity_history:
                 self.symbol_equity_history[symbol] = []
+            if not value:
+                continue
             self.symbol_equity_history[symbol].append((date, value))

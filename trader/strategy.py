@@ -5,8 +5,7 @@ from abc import ABC, abstractmethod
 import re
 
 import joblib
-
-from mistune.plugins import math
+import numpy as np
 
 from trader.events import SignalEvent, EventType
 from collections import defaultdict
@@ -124,7 +123,7 @@ class MLStrategy(BaseStrategy):
         if self.prob:
             pred = self.signal_generator.train_and_predict_proba(df)
 
-            if pred is None or math.isnan(pred):
+            if pred is None or np.isnan(pred):
 
                 return ''
 
