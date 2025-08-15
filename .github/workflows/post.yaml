@@ -98,12 +98,12 @@ jobs:
           git checkout -b auto-merge-dev-to-master
           git push origin auto-merge-dev-to-master --force
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
-          token: ${{ secrets.PAT_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           base: master
           branch: auto-merge-dev-to-master
           title: 'Auto PR: dev → master'
@@ -136,7 +136,7 @@ jobs:
             fi
           fi
         env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   wait-auto-merge:
     name: Wait for PR to merge
