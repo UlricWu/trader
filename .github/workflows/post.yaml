@@ -96,7 +96,7 @@ jobs:
 
       - name: Create temp branch from master and merge dev
         run: |
-            git checkout -b auto-merge-dev-to-master master
+            git checkout -b auto-merge-dev-to-master origin/master
             git merge origin/dev --no-ff --no-edit || true
             git push origin auto-merge-dev-to-master --force
         env:
