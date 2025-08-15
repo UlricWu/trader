@@ -12,7 +12,7 @@ jobs:
   auto-merge-dev-to-master:
     name: Auto Merge dev → master
     runs-on: ubuntu-latest
-#    needs: test
+    #    needs: test
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev')  # Only on push to dev
     steps:
       - name: Checkout code
@@ -25,9 +25,9 @@ jobs:
 
       - name: Merge dev into master
         run: |
-          git fetch origin master
+          git fetch origin dev
           git checkout master
-          git merge origin/dev --no-ff --no-edit --allow-unrelated-histories
+          git merge origin/dev -X theirs --no-edit --allow-unrelated-histories
           git push origin master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
