@@ -74,73 +74,69 @@ jobs:
 #          git push origin master
 #        env:
 #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  create-pr:
-    name: Create PR dev → master
+  create-auto-pr:
+    name: Create Auto-Merge PR dev → master
     runs-on: ubuntu-latest
 #    needs: test
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev')  # Only on push to dev
+
     outputs:
       pr_number: ${{ steps.cpr.outputs.pull-request-number }}
       pr_url: ${{ steps.cpr.outputs.pull-request-url }}
-
     steps:
-      - name: Checkout full repo
+      - name: Checkout dev
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: dev
 
-      - name: Fetch master branch
+      - name: Fetch master
         run: git fetch origin master:master
+
+      - name: Create temporary auto-merge branch
+        run: |
+          git checkout -b auto-merge-dev-to-master
+          git push origin auto-merge-dev-to-master --force
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
 
       - id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
           base: master
-          branch: dev
+          branch: auto-merge-dev-to-master
           title: 'Auto PR: dev → master'
-          body: Auto-PR to merge dev into master
-          delete-branch: false
+          body: Auto-generated PR to merge dev into master
+          delete-branch: true
 
-  auto-merge:
-    name: Enable Auto-Merge (safe)
+  auto-merge-pr:
+    name: Enable Auto-Merge
     runs-on: ubuntu-latest
-    needs: create-pr
-
+    needs: create-auto-pr
     steps:
-      - name: Check if PR was created
-        id: get_pr
+      - name: Enable Auto-Merge via gh api
         run: |
-          PR_URL="${{ needs.create-pr.outputs.pr_url }}"
+          PR_URL="${{ needs.create-auto-pr.outputs.pr_url }}"
           if [ -z "$PR_URL" ]; then
             echo "No PR created. Skipping."
-            echo "skip=true" >> $GITHUB_OUTPUT
           else
-            echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Enable Auto-Merge via gh api
-        if: steps.get_pr.outputs.skip == 'false'
-        run: |
-          PR_ID=$(gh pr view ${{ steps.get_pr.outputs.pr_url }} --json id,state -q '.id')
-          PR_STATE=$(gh pr view ${{ steps.get_pr.outputs.pr_url }} --json state -q '.state')
-          echo "PR_STATE=$PR_STATE"
-
-          if [ "$PR_STATE" = "OPEN" ]; then
-            gh api graphql -f query='
-              mutation($prId: ID!) {
-                enablePullRequestAutoMerge(input: { pullRequestId: $prId, mergeMethod: SQUASH }) {
-                  pullRequest { number }
-                }
-              }' -f prId=$PR_ID
-          else
-            echo "PR is not open. Skipping auto-merge."
+            PR_ID=$(gh pr view "$PR_URL" --json id,state -q '.id')
+            PR_STATE=$(gh pr view "$PR_URL" --json state -q '.state')
+            if [ "$PR_STATE" = "OPEN" ]; then
+              echo "Enabling auto-merge..."
+              gh api graphql -f query='
+                mutation($prId: ID!) {
+                  enablePullRequestAutoMerge(input: { pullRequestId: $prId, mergeMethod: SQUASH }) {
+                    pullRequest { number }
+                  }
+                }' -f prId=$PR_ID
+            else
+              echo "PR is not open. Skipping auto-merge."
+            fi
           fi
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
 
   wait-auto-merge:
     name: Wait for PR to merge
