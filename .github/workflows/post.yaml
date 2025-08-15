@@ -90,14 +90,15 @@ jobs:
           fetch-depth: 0
           ref: dev
 
-      - name: Fetch dev
-        run: git fetch origin dev:dev
+      - name: Fetch all branches
+        run: git fetch origin
+
 
       - name: Create temp branch from master and merge dev
         run: |
-          git checkout -b auto-merge-dev-to-master
-          git merge dev --no-ff --no-edit || true
-          git push origin auto-merge-dev-to-master --force
+            git checkout -b auto-merge-dev-to-master master
+            git merge origin/dev --no-ff --no-edit || true
+            git push origin auto-merge-dev-to-master --force
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
