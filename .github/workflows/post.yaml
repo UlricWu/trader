@@ -9,34 +9,43 @@ on:
 #      - 'master'
 #      - 'dev'
 jobs:
-  auto-merge-dev-to-master:
-    name: Auto Merge dev → master
-    runs-on: ubuntu-latest
-    #    needs: test
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev')  # Only on push to dev
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Fetch master
-        run: git fetch origin master:master
-      - name: Checkout dev
-        run: git checkout dev
-      - name: Create PR
-        run: |
-          gh pr create \
-            --base master \
-            --head dev \
-            --title "Auto merge dev to master" \
-            --body "Automated merge from dev to master"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Merge PR
-        run: gh pr merge --merge --auto
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#  auto-merge-dev-to-master:
+#    name: Auto Merge dev → master
+#    runs-on: ubuntu-latest
+#    #    needs: test
+#    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev')  # Only on push to dev
+#    steps:
+#      - name: Checkout repo
+#        uses: actions/checkout@v4
+#        with:
+#          fetch-depth: 0
+#      - name: Fetch master
+#        run: git fetch origin master:master
+#      - name: Checkout dev
+#        run: git checkout dev
+#
+#      - name: Create Pull Request
+#        uses: peter-evans/create-pull-request@v6
+#        with:
+#          token: ${{ secrets.PAT_TOKEN }}
+#          branch: auto-merge-dev-to-master
+#          title: 'Automated merge from dev to master'
+#          body: 'This PR was automatically created by GitHub Actions.'
+#
+#      - name: Create PR
+#        run: |
+#          gh pr create \
+#            --base master \
+#            --head dev \
+#            --title "Auto merge dev to master" \
+#            --body "Automated merge from dev to master"
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#
+#      - name: Merge PR
+#        run: gh pr merge --merge --auto
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   #      - name: Checkout code
 #        uses: actions/checkout@v3
@@ -67,10 +76,51 @@ jobs:
 #        env:
 #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  create-pr:
+    name: Create PR dev → master
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/dev'
+    outputs:
+      pr_number: ${{ steps.cpr.outputs.pull-request-number }}
+      pr_url: ${{ steps.cpr.outputs.pull-request-url }}
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: dev
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git for GitHub Actions
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.PAT_TOKEN }}  # Use PAT here
+          base: master
+          branch: dev
+          title: 'Auto PR: dev → master'
+          body: Auto-generated PR to merge dev into master
+          delete-branch: false
+
+  wait-auto-merge:
+    name: Wait for PR to merge
+    runs-on: ubuntu-latest
+    needs: create-pr
+    steps:
+      - name: Wait 30 seconds
+        run: sleep 30
+
   release:
     name: Release on master
     runs-on: ubuntu-latest
-    needs: auto-merge-dev-to-master
+    needs: wait-auto-merge
     steps:
       - uses: actions/checkout@v3
 
