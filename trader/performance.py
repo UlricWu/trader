@@ -94,7 +94,6 @@ class PerformanceAnalyzer:
         plt.tight_layout()
         plt.show()
 
-
     def _plot_drawdown(self, ax, summary):
         for sym, s in summary.items():
             dd = s["equity"] / s["equity"].cummax() - 1
@@ -107,22 +106,17 @@ class PerformanceAnalyzer:
     def _plot_equity_curve(self, ax, summary):
         if ax is None:
             ax = plt.gca()
-        for c in self._equity_curve(summary):
-            ax.plot(**c)
+
+        equity_df = self._equity_curve_df(summary)
+        for col in equity_df.columns:
+            df = equity_df[col].dropna()
+            ax.plot(df, label=col)
         ax.set_title("Equity Curve")
         ax.set_ylabel("Equity Value")
         ax.grid(True)
         ax.legend()
 
-    def _equity_curve(self, summary):
-        curve = []
-
-        for sym, s in summary.items():
-            c = {'x': s["equity"].index, 'y': (s["equity"].values,), 'label': sym}
-            curve.append(c)
-        return curve
-
-    def _equity_df(self, summary):
+    def _equity_curve_df(self, summary):
         lst = []
         for sym, s in summary.items():
             temp = s['equity'].copy()
@@ -131,23 +125,25 @@ class PerformanceAnalyzer:
         return pd.concat(lst, axis=1)
 
     @staticmethod
-    def _plot_monthly_returns(ax, stats_dict: dict):
+    def _plot_monthly_returns(ax, summary: dict):
         if ax is None:
             ax = plt.gca()
-
-        month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-        monthly_returns_df = stats_dict["returns"].resample("ME").apply(lambda x: (1 + x).prod() - 1).to_frame("Return")
-
-        monthly_returns_df["Year"] = monthly_returns_df.index.year
-        monthly_returns_df["Month"] = monthly_returns_df.index.strftime("%b")
-
-        pivot_table = monthly_returns_df.pivot(index="Year", columns="Month", values="Return")
-        pivot_table = pivot_table.reindex(columns=month_order)
+        pivot_table = PerformanceAnalyzer._monthly_return_matrix(summary['returns'])
 
         sns.heatmap(pivot_table, annot=True, fmt=".1%", center=0,
                     cmap="RdYlGn", ax=ax, cbar=False)
+
+    @staticmethod
+    def _monthly_return_matrix(returns):
+        month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        monthly_returns_df = returns.resample("ME").apply(lambda x: (1 + x).prod() - 1).round(2).to_frame(
+            "Return")
+        monthly_returns_df["Year"] = monthly_returns_df.index.year
+        monthly_returns_df["Month"] = monthly_returns_df.index.strftime("%b")
+        pivot_table = monthly_returns_df.pivot(index="Year", columns="Month", values="Return")
+        pivot_table = pivot_table.reindex(columns=month_order)
+        return pivot_table
 
     @staticmethod
     def _plot_stats_table(ax, stats_dict: dict):
@@ -163,9 +159,9 @@ class PerformanceAnalyzer:
         table.scale(1.1, 1.3)
 
     @staticmethod
-    def _stats_table(stats_dict):
+    def _stats_table(summary):
         table_data = []
-        for sym, s in stats_dict.items():
+        for sym, s in summary.items():
             table_data.append([
                 sym,
                 # s['cum_returns'] * 100,

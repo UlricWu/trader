@@ -141,7 +141,7 @@ def extract_codes(database="tutorial.db", table='daily', end_day=None, start_day
         if not check_table(table=table, database=database):
             logs.record_log(f"Table {table} does not exist")
 
-        return db.query(sql)
+        return [s[0] for s in db.query(sql)]
 
 
 def extract_table(database="tutorial.db", table='daily', end_day=None, start_day=None, pandas=True, ts_code=None):
