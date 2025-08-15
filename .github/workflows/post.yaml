@@ -15,34 +15,57 @@ jobs:
     #    needs: test
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev')  # Only on push to dev
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Checkout full repo
+      - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # Important: fetch all history and branches
-
-      - name: Configure Git for GitHub Actions
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-
-      - name: Fetch master branch
+          fetch-depth: 0
+      - name: Fetch master
         run: git fetch origin master:master
-
-      - name: Checkout master
-        run: git checkout master
-
-      - name: Merge dev into master
-        run: git merge origin/dev -X theirs --no-edit --allow-unrelated-histories --no-ff --commit -m "Auto-merge dev into master"
-
-      - name: Merge dev into master
+      - name: Checkout dev
+        run: git checkout dev
+      - name: Create PR
         run: |
-
-          git push origin master
+          gh pr create \
+            --base master \
+            --head dev \
+            --title "Auto merge dev to master" \
+            --body "Automated merge from dev to master"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Merge PR
+        run: gh pr merge --merge --auto
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  #      - name: Checkout code
+#        uses: actions/checkout@v3
+#
+#      - name: Checkout full repo
+#        uses: actions/checkout@v4
+#        with:
+#          fetch-depth: 0   # Important: fetch all history and branches
+#
+#      - name: Configure Git for GitHub Actions
+#        run: |
+#          git config --global user.name 'github-actions[bot]'
+#          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+#
+#      - name: Fetch master branch
+#        run: git fetch origin master:master
+#
+#      - name: Checkout master
+#        run: git checkout master
+#
+#      - name: Merge dev into master
+#        run: git merge origin/dev -X theirs --no-edit --allow-unrelated-histories --no-ff --commit -m "Auto-merge dev into master"
+#
+#      - name: Merge dev into master
+#        run: |
+#
+#          git push origin master
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   release:
     name: Release on master
