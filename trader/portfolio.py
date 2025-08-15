@@ -108,25 +108,6 @@ class Portfolio:
     def update_price(self, market_event: MarketEvent):
         self.current_prices[market_event.symbol] = market_event.close
 
-    # def update_price(self, market_event: MarketEvent):
-    #     symbol = market_event.symbol
-    #     price = market_event.close
-    #     self.current_prices[symbol] = price
-    #
-    #     # Record account-level equity
-    #     total_equity = self.cash + sum(
-    #         pos.quantity * self.current_prices.get(pos.symbol, 0)
-    #         for pos in self.positions.values()
-    #     )
-    #     self.history.append((market_event.datetime, total_equity))
-    #
-    #     # Record per-symbol equity: symbol_value + allocated cash (set to 0 if you want)
-    #     pos = self.positions.get(symbol)
-    #     symbol_value = pos.quantity * price if pos else 0.0
-    #     if symbol not in self.symbol_equity_history:
-    #         self.symbol_equity_history[symbol] = []
-    #     self.symbol_equity_history[symbol].append((market_event.datetime, symbol_value))
-
     @property
     def equity(self):
         equity = self.cash
