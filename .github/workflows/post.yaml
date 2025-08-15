@@ -4,10 +4,10 @@ on:
   push:
     branches:
       - 'dev'
-  pull_request:
-    branches:
-      - 'master'
-      - 'dev'
+#  pull_request:
+#    branches:
+#      - 'master'
+#      - 'dev'
 jobs:
   auto-merge-dev-to-master:
     name: Auto Merge dev → master
