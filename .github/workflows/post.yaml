@@ -9,7 +9,7 @@ jobs:
   create-pr:
     name: Create PR dev → master
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/dev'
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev')  # Only on push to dev
     outputs:
       pr_number: ${{ steps.cpr.outputs.pull-request-number }}
       pr_url: ${{ steps.cpr.outputs.pull-request-url }}
