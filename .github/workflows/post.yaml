@@ -19,13 +19,18 @@ jobs:
         run: |
           git config --local user.email "actions@github.com"
           git config --local user.name "Github Actions"
-      - name: Merge master back to dev
-        run: |
-          git fetch --unshallow
-          git checkout dev
-          git pull
-          git merge --no-ff master -m "Auto-merge master back to dev"
-          git push
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch master
+        run: git fetch origin master:master
+      - name: Checkout dev
+        run: git checkout dev
+
+      - name: Merge dev into master
+        run: git merge origin/dev -X theirs --no-edit --allow-unrelated-histories --no-ff --commit -m "Auto-merge dev into master"
+
 
   wait-auto-merge:
     name: Wait for PR to merge
