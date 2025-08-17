@@ -23,13 +23,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Fetch master
-        run: git fetch origin master:master
-      - name: Checkout dev
-        run: git checkout dev
 
       - name: Merge dev into master
-        run: git merge origin/dev -X theirs --no-edit --allow-unrelated-histories --no-ff --commit -m "Auto-merge dev into master"
+        run: |
+          git fetch origin master
+          git checkout master
+          git merge origin/dev -X theirs --no-ff --no-edit --allow-unrelated-histories --commit -m "Auto-merge dev into master"
+          git push origin master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 
   wait-auto-merge:
