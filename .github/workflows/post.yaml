@@ -8,153 +8,24 @@ on:
     branches:
       - 'master'
 jobs:
-  #  auto-merge-dev-to-master:
-  #    name: Auto Merge dev → master
-  #    runs-on: ubuntu-latest
-  #    #    needs: test
-  #    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev')  # Only on push to dev
-  #    steps:
-  #      - name: Checkout repo
-  #        uses: actions/checkout@v4
-  #        with:
-  #          fetch-depth: 0
-  #      - name: Fetch master
-  #        run: git fetch origin master:master
-  #      - name: Checkout dev
-  #        run: git checkout dev
-  #
-  #      - name: Create Pull Request
-  #        uses: peter-evans/create-pull-request@v6
-  #        with:
-  #          token: ${{ secrets.PAT_TOKEN }}
-  #          branch: auto-merge-dev-to-master
-  #          title: 'Automated merge from dev to master'
-  #          body: 'This PR was automatically created by GitHub Actions.'
-  #
-  #      - name: Create PR
-  #        run: |
-  #          gh pr create \
-  #            --base master \
-  #            --head dev \
-  #            --title "Auto merge dev to master" \
-  #            --body "Automated merge from dev to master"
-  #        env:
-  #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #
-  #      - name: Merge PR
-  #        run: gh pr merge --merge --auto
-  #        env:
-  #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  #      - name: Checkout code
-  #        uses: actions/checkout@v3
-  #
-  #      - name: Checkout full repo
-  #        uses: actions/checkout@v4
-  #        with:
-  #          fetch-depth: 0   # Important: fetch all history and branches
-  #
-  #      - name: Configure Git for GitHub Actions
-  #        run: |
-  #          git config --global user.name 'github-actions[bot]'
-  #          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-  #
-  #      - name: Fetch master branch
-  #        run: git fetch origin master:master
-  #
-  #      - name: Checkout master
-  #        run: git checkout master
-  #
-  #      - name: Merge dev into master
-  #        run: git merge origin/dev -X theirs --no-edit --allow-unrelated-histories --no-ff --commit -m "Auto-merge dev into master"
-  #
-  #      - name: Merge dev into master
-  #        run: |
-  #
-  #          git push origin master
-  #        env:
-  #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  create-auto-pr:
-    name: Create Auto-Merge PR dev → master
+  merge-master-back-to-dev:
+    if: github.event.pull_request.merged == true
+    timeout-minutes: 2
     runs-on: ubuntu-latest
-    #    needs: test
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev')  # Only on push to dev
-
-    outputs:
-      pr_number: ${{ steps.cpr.outputs.pull-request-number }}
-      pr_url: ${{ steps.cpr.outputs.pull-request-url }}
     steps:
-      - name: Checkout dev
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: dev
-
-
-      - name: Configure Git for GitHub Actions
+      - uses: actions/checkout@v2
+      - name: Set Git config
         run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-
-      - name: Delete existing temp branch if exists
-        run: git push origin --delete auto-merge-dev-to-master || true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
-
-      - name: Create temp branch from master and merge dev
+          git config --local user.email "actions@github.com"
+          git config --local user.name "Github Actions"
+      - name: Merge master back to dev
         run: |
-          git fetch origin 
-    
-          git checkout -b auto-merge-dev-to-master origin/master
-          git merge origin/dev --no-ff --no-edit || true
-        
-          echo "Auto dummy commit $(date +%s)" > dummy.txt # Always create a dummy commit to force PR creation
-          git add dummy.txt
-          git commit -m "chore: dummy commit $(date +%s)"
-          
-          git push origin auto-merge-dev-to-master --force
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - id: cpr
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          base: master
-          branch: auto-merge-dev-to-master
-          title: 'Auto PR: dev → master'
-          body: Auto-generated PR to merge dev into master
-          delete-branch: false
-
-  auto-merge-pr:
-    name: Enable Auto-Merge
-    runs-on: ubuntu-latest
-    needs: create-auto-pr
-    steps:
-      - name: Enable Auto-Merge via gh api
-        run: |
-          PR_URL="${{ needs.create-auto-pr.outputs.pr_url }}"
-          if [ -z "$PR_URL" ]; then
-            echo "No PR created. Skipping."
-          else
-            PR_ID=$(gh pr view "$PR_URL" --json id,state -q '.id')
-            PR_STATE=$(gh pr view "$PR_URL" --json state -q '.state')
-            if [ "$PR_STATE" = "OPEN" ]; then
-              echo "Enabling auto-merge..."
-              gh api graphql -f query='
-                mutation($prId: ID!) {
-                  enablePullRequestAutoMerge(input: { pullRequestId: $prId, mergeMethod: SQUASH }) {
-                    pullRequest { number }
-                  }
-                }' -f prId=$PR_ID
-            else
-              echo "PR is not open. Skipping auto-merge."
-            fi
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git fetch --unshallow
+          git checkout dev
+          git pull
+          git merge --no-ff master -m "Auto-merge master back to dev"
+          git push
 
   wait-auto-merge:
     name: Wait for PR to merge
