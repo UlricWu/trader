@@ -128,22 +128,22 @@ class PerformanceAnalyzer:
     def _plot_monthly_returns(ax, summary: dict):
         if ax is None:
             ax = plt.gca()
-        pivot_table = PerformanceAnalyzer._monthly_return_matrix(summary['returns'])
+        pivot_table = stats._monthly_return_matrix(summary['returns'])
 
         sns.heatmap(pivot_table, annot=True, fmt=".1%", center=0,
                     cmap="RdYlGn", ax=ax, cbar=False)
 
-    @staticmethod
-    def _monthly_return_matrix(returns):
-        month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        monthly_returns_df = returns.resample("ME").apply(lambda x: (1 + x).prod() - 1).round(2).to_frame(
-            "Return")
-        monthly_returns_df["Year"] = monthly_returns_df.index.year
-        monthly_returns_df["Month"] = monthly_returns_df.index.strftime("%b")
-        pivot_table = monthly_returns_df.pivot(index="Year", columns="Month", values="Return")
-        pivot_table = pivot_table.reindex(columns=month_order)
-        return pivot_table
+    # @staticmethod
+    # def _monthly_return_matrix(returns):
+    #     month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    #                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    #     monthly_returns_df = returns.resample("ME").apply(lambda x: (1 + x).prod() - 1).round(2).to_frame(
+    #         "Return")
+    #     monthly_returns_df["Year"] = monthly_returns_df.index.year
+    #     monthly_returns_df["Month"] = monthly_returns_df.index.strftime("%b")
+    #     pivot_table = monthly_returns_df.pivot(index="Year", columns="Month", values="Return")
+    #     pivot_table = pivot_table.reindex(columns=month_order)
+    #     return pivot_table
 
     @staticmethod
     def _plot_stats_table(ax, stats_dict: dict):

@@ -14,19 +14,20 @@ from trader.config import load_settings
 from trader.backtest_engine import Backtest
 from trader.performance import PerformanceAnalyzer
 from data import db
+from plotly.subplots import make_subplots
+import trader.statistics as Stats
 
 
 # ---------------------------
 # Helper Functions
 # ---------------------------
 
-def plot_equity_curves(df_equity):
-    return fig
 
-
-def plot_drawdowns(summary, symbols):
+def plot_drawdowns(summary):
     fig = go.Figure()
-    for sym in symbols:
+    for sym in summary.keys():
+        if sym == 'account':
+            continue
         equity = summary[sym]["equity"]
         drawdown = equity / equity.cummax() - 1
         fig.add_trace(go.Scatter(
@@ -43,19 +44,37 @@ def plot_drawdowns(summary, symbols):
     return fig
 
 
-def plot_monthly_returns(performance, summary, symbols):
-    figs = []
-    for sym in symbols:
-        pivot_table = performance._monthly_return_matrix(summary[sym]["returns"])
-        fig = px.imshow(
-            pivot_table,
-            text_auto=True,
-            color_continuous_scale='Viridis',
-            title=f"{sym} Monthly Returns"
+def plot_heatmap(summary):
+    symbols = [s for s in summary.keys() if s != "account"]
+
+    fig = make_subplots(
+        rows=1,
+        cols=len(symbols),
+        subplot_titles=symbols
+    )
+
+    for col, sym in enumerate(symbols, start=1):
+        pivot_table = Stats._monthly_return_matrix(summary[sym]["returns"])
+        heatmap = go.Heatmap(
+            z=pivot_table.values,
+            x=pivot_table.columns,
+            y=pivot_table.index,
+            colorscale="RdYlGn",
+            zmin=-0.1,  # adjust scale for returns
+            zmax=0.1,
+            colorbar=dict(title="Return", x=1.0 + (0.05 * (col - 1)))
         )
-        fig.update_layout(template="plotly_white")
-        figs.append(fig)
-    return figs
+        fig.add_trace(heatmap, row=1, col=col)
+
+    fig.update_layout(
+        height=400,
+        width=300 * len(symbols),
+        title="Monthly Return Heatmap per Symbol",
+        showlegend=False,
+        template="plotly_white"
+    )
+
+    return fig
 
 
 def plot_price_trend_with_trades(df, bt, symbols):
@@ -178,12 +197,11 @@ def main():
 
         # Drawdowns
         st.subheader("Drawdowns")
-        st.plotly_chart(plot_drawdowns(summary, symbols), use_container_width=True)
+        st.plotly_chart(plot_drawdowns(summary), use_container_width=True)
 
         # Monthly Returns
         st.subheader("Monthly Returns Heatmaps")
-        for fig in plot_monthly_returns(performance, summary, symbols):
-            st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(plot_heatmap(summary), use_container_width=True)
 
         # Price Trend with Trades
         st.subheader("Price Trend with Executed Trades")

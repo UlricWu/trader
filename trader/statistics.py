@@ -84,6 +84,18 @@ def daily_returns(equity) -> pd.DataFrame:
     return round_float(equity.dropna().pct_change().fillna(0))
 
 
+def _monthly_return_matrix(returns: pd.DataFrame):
+    month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    monthly_returns_df = returns.resample("ME").apply(lambda x: (1 + x).prod() - 1).round(2).to_frame(
+        "Return")
+    monthly_returns_df["Year"] = monthly_returns_df.index.year
+    monthly_returns_df["Month"] = monthly_returns_df.index.strftime("%b")
+    pivot_table = monthly_returns_df.pivot(index="Year", columns="Month", values="Return")
+    pivot_table = pivot_table.reindex(columns=month_order)
+    return pivot_table
+
+
 def annual_returns(equity) -> float:
     daily = daily_returns(equity)
     annual = (1 + daily.mean()) ** YEAR - 1
