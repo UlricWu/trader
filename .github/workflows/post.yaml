@@ -9,7 +9,7 @@ on:
       - 'master'
 jobs:
 
-  merge-master-back-to-dev:
+  auto-merge-pr:
     if: github.event.pull_request.merged == true
     timeout-minutes: 2
     runs-on: ubuntu-latest
