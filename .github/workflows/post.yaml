@@ -10,7 +10,7 @@ on:
 jobs:
 
   auto-merge-pr:
-    if: github.event.pull_request.merged == true
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev')  # Only on push to dev
     timeout-minutes: 2
     runs-on: ubuntu-latest
     steps:
