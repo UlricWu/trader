@@ -41,7 +41,7 @@ class BaseStrategy(ABC):
 
     def __init__(self, settings: Settings):
         self.settings = settings
-        # self.events=events
+        self.predictions = []  # (predicted, actual)
 
     @abstractmethod
     def on_market(self, event: MarketEvent) -> List[SignalEvent]:
@@ -49,6 +49,13 @@ class BaseStrategy(ABC):
         Process a MarketEvent and return a list of SignalEvents.
         """
         pass
+
+    # def summary(self):
+    #     correct = sum(1 for prob, a in preds if (prob >= 0.5) == a)
+    #     accuracy = correct / len(preds)
+    #     avg_conf = sum(abs(prob - 0.5) for prob, _ in preds) / len(preds) * 2
+    #     print(f"ML Prediction Accuracy: {accuracy:.2%} ({correct}/{len(preds)})")
+    #     print(f"Avg Prediction Confidence: {avg_conf:.2%}")
 
 
 class RuleStrategy(BaseStrategy):
@@ -75,13 +82,19 @@ class RuleStrategy(BaseStrategy):
 
         avg = sum(self.prices[event.symbol][-self.window:]) / self.window
         if event.close > avg:
+            signal_type = "BUY"
             # limit_price = event.close * (1 + self.slippage)  # Buy 1% above the close price
             return SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type="BUY")
             # self.events.put(SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type="BUY"))
         elif event.close < avg:
+            signal_type = "SELL"
+
             # limit_price = event.close * (1 - self.slippage)  # Sell 1% below the close price
             # self.events.put(SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type="SELL"))
             return SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type="SELL")
+
+        # actual = df["Target"].iloc[-1]  # ground truth from last bar
+        # self.predictions.append((pred, actual))
 
         return skip_event
 

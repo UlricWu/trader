@@ -37,7 +37,8 @@ class Backtest:
                 event = self.events.get()
 
                 if event.is_empty():
-                    print("This event is uninitialized.")
+                    continue
+                    # print("holding. This event is uninitialized.")
 
                 if event.type == EventType.MARKET:
                     signal = self.strategy.on_market(event)
@@ -75,8 +76,4 @@ class Backtest:
     def summary(self):
         logs.record_log(f"Avg Prediction Confidence: ")
         # pass
-    #     correct = sum(1 for prob, a in preds if (prob >= 0.5) == a)
-    #     accuracy = correct / len(preds)
-    #     avg_conf = sum(abs(prob - 0.5) for prob, _ in preds) / len(preds) * 2
-    #     print(f"ML Prediction Accuracy: {accuracy:.2%} ({correct}/{len(preds)})")
-    #     print(f"Avg Prediction Confidence: {avg_conf:.2%}")
+

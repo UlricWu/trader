@@ -1,43 +1,33 @@
 # portfolio.py
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict
+from typing import Dict, List, Tuple, Optional
 
 import pandas as pd
-
 from collections import defaultdict
-from trader.events import OrderEvent, FillEvent, EventType, SignalEvent, MarketEvent, Event
 
-from utilts.logs import logs
-
+from trader.events import MarketEvent, SignalEvent, OrderEvent, FillEvent, Event
 from trader.config import Settings
-
-from trader.events import FillEvent, SignalEvent
-from typing import Dict, List, Tuple
+from utilts.logs import logs
 
 
 @dataclass
 class Position:
-    #     """represents the full state of an asset you own"""
     symbol: str
     quantity: int = 0
     avg_price: float = 0.0
-    total_buy_commission = 0.0
-    total_buy_quantity = 0
+    total_buy_commission: float = 0.0
+    total_buy_quantity: int = 0
 
-    def update_on_fill(self, fill: FillEvent):
+    def update_on_fill(self, fill: FillEvent) -> None:
         if fill.direction == "BUY":
-
             total_cost = self.avg_price * self.quantity
             fill_cost = fill.price * fill.quantity
             new_total_qty = self.quantity + fill.quantity
-            self.avg_price = (
-                (total_cost + fill_cost) / new_total_qty if new_total_qty > 0 else 0.0
-            )
+            self.avg_price = ((total_cost + fill_cost) / new_total_qty) if new_total_qty > 0 else 0.0
             self.quantity = new_total_qty
             self.total_buy_commission += fill.commission
             self.total_buy_quantity += fill.quantity
-
         elif fill.direction == "SELL":
             self.quantity -= fill.quantity
             if self.quantity == 0:
@@ -65,188 +55,145 @@ class DailySnapshot:
     date: datetime
     cash: float
     equity: float
-    holdings: Dict[str, float]  # symbol -> market value
+    holdings: Dict[str, float]
     total_value: float
 
 
 class Portfolio:
-    """
-    The Portfolio class tracks cash, positions, and market values over time.
-    It records per-symbol market values and total portfolio value at each market update,
-    enabling performance analysis and plotting versus a benchmark.
-    """
-    # Commission and fee rates (China stock market)
-    min_commission = 5.0  # Min ¥5
-    stamp_duty_rate = 0.001  # 0.1% (sell only)
-    transfer_fee_rate = 0.00001  # 0.001% (sell only)
-    commission_rate = 0.001  # 0.1%
+    """Tracks positions, cash, equity, and transaction history."""
+
+    MIN_COMMISSION: float = 5.0
+    COMMISSION_RATE: float = 0.001
+    STAMP_DUTY_RATE: float = 0.001
+    TRANSFER_FEE_RATE: float = 0.00001
 
     def __init__(self, settings: Settings):
-
         self.settings = settings
-        self.cash = settings.trading.INITIAL_CASH  # reflects all costs accurately.
-        self.risk_pct = settings.trading.RISK_PCT
+        self.cash: float = settings.trading.INITIAL_CASH
+        self.risk_pct: float = settings.trading.RISK_PCT
 
-        self.positions: Dict[str, Position] = {}  # updates quantity and avg price.
+        self.positions: Dict[str, Position] = {}
         self.current_prices: Dict[str, float] = {}
-        self.history: List[Tuple[datetime, float]] = []
-
         self.transactions: List[TradeRecord] = []
         self.daily_snapshots: List[DailySnapshot] = []
         self.realized_pnl: Dict[str, float] = {}
-        self.symbol_equity_history: Dict[str, List[Tuple[datetime, float]]] = {}  # daily per-symbol value
+        self.symbol_equity_history: Dict[str, List[Tuple[datetime, float]]] = {}
+        self.history: List[Tuple[datetime, float]] = []
 
-        # Realized PnL = (Sell Price - Buy Price) × Quantity - (Buy Commission + Sell Commission)
-        # Realized PnL = (Sell Price - Buy Price) × Quantity
-        #                - Buy Commission - (Sell Commission + Stamp Duty + Transfer Fee) in china
+    # -----------------------------
+    # Properties
+    # -----------------------------
+    @property
+    def equity(self) -> float:
+        total = self.cash + sum(
+            pos.quantity * self.current_prices.get(sym, 0.0) for sym, pos in self.positions.items()
+        )
+        return total
 
     @property
-    def equity_curve(self):
+    def equity_curve(self) -> List[Tuple[datetime, float]]:
         return self.history
 
-    def update_price(self, market_event: MarketEvent):
-        self.current_prices[market_event.symbol] = market_event.close
-
     @property
-    def equity(self):
-        equity = self.cash
-        for symbol, position in self.positions.items():
-            price = self.current_prices.get(symbol, 0)
-            equity += position.quantity * price
-        return equity
-
-    @property
-    def equity_df(self):
+    def equity_df(self) -> pd.DataFrame:
         return pd.DataFrame(self.history, columns=["datetime", "equity"]).set_index("datetime")
 
     @property
-    def symbol_equity_df(self) -> Dict[str, pd.DataFrame]:
-        retuslts = []
+    def symbol_equity_df(self) -> pd.DataFrame:
+        frames = []
         for symbol, history in self.symbol_equity_history.items():
-            df = pd.DataFrame(history, columns=["datetime", symbol]).set_index("datetime").dropna()
+            df = pd.DataFrame(history, columns=["datetime", symbol]).set_index("datetime")
             df = df[df[symbol] != 0].sort_index()
-            retuslts.append(df)
+            frames.append(df)
 
-        if len(retuslts) == 0:
-            return pd.DataFrame()
+        return pd.concat(frames)
 
-        return pd.concat(retuslts)
+    # -----------------------------
+    # Price & Signal Handling
+    # -----------------------------
+    def update_price(self, market_event: MarketEvent) -> None:
+        self.current_prices[market_event.symbol] = market_event.close
 
-    def on_signal(self, signal_event: SignalEvent):
-        symbol = signal_event.symbol
-        direction = signal_event.signal_type
-        quantity = 10  # signal_event.quantity
-
-        price = self.current_prices.get(symbol, 0)
+    def on_signal(self, signal: SignalEvent) -> Optional[OrderEvent]:
+        symbol = signal.symbol
+        direction = signal.signal_type
+        price = self.current_prices.get(symbol, 0.0)
+        quantity = 10  # TODO: could calculate based on risk_pct
 
         skip_event = Event(None, None)  # hold
-        if direction == "BUY":
-            # Handle BUY or SELL signals with LIMIT price logic
-            if self.cash < price * quantity:
-                message = f"SIGNAL={direction}  fail at  {quantity} because of cash {self.cash} < {price * quantity}"
-                logs.record_log(message=message, level=3)
-                return skip_event
 
-        elif direction == "SELL" and symbol in self.positions:
+        if direction == "BUY" and self.cash < price * quantity:
+            logs.record_log(f"Not enough cash for {symbol} BUY signal", level=3)
+            return skip_event
+        if direction == "SELL" and (symbol not in self.positions or self.positions[symbol].quantity < quantity):
+            logs.record_log(f"Not enough holdings for {symbol} SELL signal", level=3)
+            return skip_event
 
-            if self.positions[symbol].quantity < quantity:
-                message = f"SIGNAL={direction} {symbol} fail at quantity={quantity} because of not enough holdings {self.positions}"
-                logs.record_log(message=message, level=3)
-                return skip_event
+        return OrderEvent(symbol, "MKT", quantity, direction, signal.datetime)
 
-        return OrderEvent(symbol, "MKT", quantity, direction, signal_event.datetime)
-
-    def on_fill(self, event: FillEvent) -> None:
-        """
-        Process a FillEvent: deduct cash and update position quantities.
-        """
-
-        symbol = event.symbol
+    # -----------------------------
+    # Fill Handling
+    # -----------------------------
+    def on_fill(self, fill: FillEvent) -> None:
+        symbol = fill.symbol
         if symbol not in self.positions:
             self.positions[symbol] = Position(symbol)
 
         position = self.positions[symbol]
-        logs.record_log(position)
-        quantity = event.quantity
-        price = event.price
-        cost = price * quantity
-        direction = event.direction
-        realized_pnl = 0
 
-        if direction == "BUY":
-            commission = self.calculate_buy_commission(cost) if self.commission_rate else 0
+        if fill.direction == "BUY":
+            commission = self._calculate_buy_commission(fill.price * fill.quantity)
+            self.cash -= fill.price * fill.quantity + commission
+            fill.commission = commission
 
-            self.cash -= cost + commission
-            event.commission = commission
-
-            logs.record_log(f"buy commission: {commission}  cost: {cost}  direction: {direction} cash: {self.cash}")
-
-        elif direction == "SELL":
-            commission = self.calculate_sell_commission(cost) if self.commission_rate else 0
-            logs.record_log(f"commission={commission}")
-
-            # # Proportional buy commission
-            # if position.total_buy_quantity < 0:
-            #     logs.record_log(f"not enough quantity to sell {event}")
-            #     return
-
+        elif fill.direction == "SELL":
+            commission = self._calculate_sell_commission(fill.price * fill.quantity)
             if position.total_buy_quantity == 0:
-                logs.record_log(f'error selling {position} event={event}')
+                logs.record_log(f"Attempted to sell without holdings: {symbol}", level=3)
                 return
-            buy_fee_applied = (quantity / position.total_buy_quantity) * position.total_buy_commission
-            gross_pnl = (price - position.avg_price) * quantity
-            realized_pnl = gross_pnl - buy_fee_applied - commission
-
-            self.realized_pnl[symbol] = self.realized_pnl.get(symbol, 0.0) + realized_pnl
-            self.cash += cost - commission
-            event.commission = commission
+            buy_fee_applied = (fill.quantity / position.total_buy_quantity) * position.total_buy_commission
+            gross_pnl = (fill.price - position.avg_price) * fill.quantity
+            realized = gross_pnl - buy_fee_applied - commission
+            self.realized_pnl[symbol] = self.realized_pnl.get(symbol, 0.0) + realized
+            self.cash += fill.price * fill.quantity - commission
+            fill.commission = commission
         else:
             return
 
-        position.update_on_fill(event)
+        position.update_on_fill(fill)
 
-        self.transactions.append(TradeRecord(
-            symbol=symbol,
-            date=event.datetime,
-            direction=direction,
-            quantity=quantity,
-            price=price,
-            commission=commission,
-            stamp_tax=self.stamp_duty_rate if direction == "SELL" else 0.0,
-            realized_pnl=realized_pnl
-        ))
-
-        logs.record_log(
-            f"[FILL] {symbol} | Action: {direction} | Qty: {quantity} | Px: {price:.2f} | Cash: {self.cash:.2f}",
-            level=1
+        self.transactions.append(
+            TradeRecord(
+                symbol=symbol,
+                date=fill.datetime,
+                direction=fill.direction,
+                quantity=fill.quantity,
+                price=fill.price,
+                commission=fill.commission,
+                stamp_tax=self.STAMP_DUTY_RATE if fill.direction == "SELL" else 0.0,
+                realized_pnl=self.realized_pnl.get(symbol, 0.0)
+            )
         )
 
-        # self.trades.append({
-        #     'symbol': event.symbol,
-        #     'date': event.date,
-        #     'price': event.price,
-        #     'quantity': event.quantity
-        # })
+    # -----------------------------
+    # Risk & Commission Utilities
+    # -----------------------------
+    def calculate_quantity(self, price: float) -> int:
+        qty = int((self.cash * self.risk_pct) // price)
+        return max(qty, 1)
 
-    def calculate_quantity(self, price):
-        risk_amount = self.cash * self.risk_pct
-        quantity = int(risk_amount // price)
-        return max(quantity, 1)
+    def _calculate_buy_commission(self, amount: float) -> float:
+        return max(amount * self.COMMISSION_RATE, self.MIN_COMMISSION)
 
-    def calculate_buy_commission(self, amount):
-        commission = max(amount * self.commission_rate, self.min_commission)
-        return commission
+    def _calculate_sell_commission(self, amount: float) -> float:
+        commission = max(amount * self.COMMISSION_RATE, self.MIN_COMMISSION)
+        stamp = amount * self.STAMP_DUTY_RATE
+        transfer = amount * self.TRANSFER_FEE_RATE
+        return commission + stamp + transfer
 
-    def calculate_sell_commission(self, amount):
-        # logs.record_log(f"amount={amount}, commission_rate={self.commission_rate}, commission={amount*self.commission_rate}")
-        commission = max(amount * self.commission_rate, self.min_commission)
-        stamp_duty = amount * self.stamp_duty_rate
-        transfer_fee = amount * self.transfer_fee_rate
-        total_fee = commission + stamp_duty + transfer_fee
-
-        # logs.record_log(f'commission={commission}, stamp_duty={stamp_duty}, transfer_fee={transfer_fee}')
-        return total_fee
-
+    # -----------------------------
+    # Daily Snapshot
+    # -----------------------------
     def record_daily_snapshot(self, date: datetime) -> None:
         holdings_value = {
             symbol: pos.quantity * self.current_prices.get(symbol, 0.0)
@@ -254,18 +201,19 @@ class Portfolio:
         }
         total_equity = sum(holdings_value.values()) + self.cash
 
-        self.history.append((date, total_equity))  # Only once per day
-        self.daily_snapshots.append(DailySnapshot(
-            date=date,
-            cash=self.cash,
-            equity=total_equity,
-            holdings=holdings_value,
-            total_value=total_equity
-        ))
+        self.history.append((date, total_equity))
+        self.daily_snapshots.append(
+            DailySnapshot(
+                date=date,
+                cash=self.cash,
+                equity=total_equity,
+                holdings=holdings_value,
+                total_value=total_equity
+            )
+        )
 
         for symbol, value in holdings_value.items():
             if symbol not in self.symbol_equity_history:
                 self.symbol_equity_history[symbol] = []
-            if not value:
-                continue
-            self.symbol_equity_history[symbol].append((date, value))
+            if value:
+                self.symbol_equity_history[symbol].append((date, value))

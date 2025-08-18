@@ -57,7 +57,7 @@ def test_execute_order_with_slippage_sell(default_settings):
     assert fill_event.direction == "SELL"
 
 
-def test_execution_handler_generates_fill_with_real_queue( event_execution_handler, default_settings):
+def test_execution_handler_generates_fill_with_real_queue(event_execution_handler, default_settings):
     order = OrderEvent(
         symbol="AAPL",
         order_type="MKT",
@@ -65,8 +65,6 @@ def test_execution_handler_generates_fill_with_real_queue( event_execution_handl
         direction="BUY",
         datetime=datetime(2025, 1, 1)
     )
-
-
 
     # Assert the FillEvent is in the queue
     event = event_execution_handler.execute_order(order, market_price=100.0)
@@ -87,35 +85,37 @@ def test_limit_order_sell_no_slippage(default_settings):
     assert fill.direction == "SELL"
 
 
-# def test_limit_order_fills_when_price_matches(event_execution_handler):
-#     # Example daily bar
-#     daily_bar = MarketEvent(
-#         datetime=datetime(2024, 1, 1),
-#         symbol="TEST",
-#         open=100,
-#         high=105,
-#         low=95,
-#         close=102
-#     )
-#
-#     # Create a BUY LIMIT order at price 96, should be filled since low=95
-#     limit_order = OrderEvent(
-#         symbol="TEST",
-#         order_type="LIMIT",
-#         quantity=10,
-#         direction="BUY",
-#         limit_price=96,
-#         datetime=daily_bar.datetime
-#     )
-#
-#     # Simulate limit order execution
-#     fill_event = event_execution_handler.execute_order(order_event=limit_order, market_price=daily_bar.close)
-#     print(fill_event)
-#     # Assert a fill was put into the queue
-#     # assert mock_event_queue.put.called
-#     # fill_event = mock_event_queue.put.call_args[0][0]
-#     # assert fill_event.type == EventType.FILL
-#     assert fill_event.symbol == "TEST"
-#     assert fill_event.fill_price == 96
-#     assert fill_event.quantity == 10
-#     assert fill_event.direction == "BUY"
+def test_limit_order_fills_when_price_matches(event_execution_handler):
+    # Example daily bar
+    daily_bar = MarketEvent(
+        datetime=datetime(2024, 1, 1),
+        symbol="TEST",
+        open=100,
+        high=105,
+        low=95,
+        close=102
+    )
+
+    # Create a BUY LIMIT order at price 96, should be filled since low=95
+    limit_order = OrderEvent(
+        symbol="TEST",
+        order_type="LIMIT",
+        quantity=10,
+        direction="BUY",
+        limit_price=96,
+        datetime=daily_bar.datetime
+    )
+
+    # Simulate limit order execution
+    fill_event = event_execution_handler.execute_order(order_event=limit_order, market_price=daily_bar.low)
+
+    assert fill_event.symbol == "TEST"
+    assert fill_event.price == 96
+    assert fill_event.quantity == 10
+    assert fill_event.direction == "BUY"
+
+    # Simulate limit order execution
+    fill_event2 = event_execution_handler.execute_order(order_event=limit_order, market_price=daily_bar.high)
+
+    assert fill_event2.is_empty()
+

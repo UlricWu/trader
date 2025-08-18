@@ -30,17 +30,7 @@ def test_simple_strategy_signal_generation( default_settings):
 #
 
 
-#
-import pandas as pd
-import numpy as np
-# import pytest
-# from trader.strategy import MLStrategy
-#
-# from config.config import StrategyConfig
-#
-#
 
-#
 #
 # def test_strategy_signal_generation(sample_data):
 #     config = StrategyConfig(window_size=20, long_threshold=0.005, short_threshold=-0.005)

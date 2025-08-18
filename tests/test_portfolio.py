@@ -241,7 +241,7 @@ def test_buy_commission(Commission_portfolio_with_mock_events):
     # Apply buy fill
     portfolio.on_fill(buy_order)
 
-    expected_commission = portfolio.calculate_buy_commission(100 * 10)
+    expected_commission = portfolio._calculate_buy_commission(100 * 10)
 
     assert portfolio.cash == 100000 - (100 * 10 + expected_commission)
     assert portfolio.positions['AAPL'].quantity == 10  # Check that the holding quantity increased
