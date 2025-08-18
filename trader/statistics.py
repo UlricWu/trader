@@ -3,6 +3,8 @@ import numpy as np
 
 DECIMALS = 4
 YEAR = 252
+MONTHLY = 12
+WEEKLY = 52
 
 
 def round_float(x: float) -> float:
@@ -98,9 +100,16 @@ def _monthly_return_matrix(returns: pd.DataFrame):
 
 def annual_returns(equity) -> float:
     daily = daily_returns(equity)
-    annual = (1 + daily.mean()) ** YEAR - 1
+    # Calculate the compounded return over the entire period
+    compounded_return = (1 + daily).prod() - 1
 
-    return round_float(annual)
+    # Determine the total number of periods in your data
+    total_periods = len(daily)
+
+    # Calculate the annualized return
+    annualized_return = (1 + compounded_return) ** (YEAR / total_periods) - 1
+
+    return round_float(annualized_return)
 
 
 # def cagr(equity: pd.Series) -> float:
