@@ -163,22 +163,22 @@ def test_multiple_symbols_independent_pnl(event_portfolio):
     assert abs(event_portfolio.realized_pnl["AAPL"] - aapl_net_pnl) < 1e-3
     assert abs(event_portfolio.realized_pnl["MSFT"] - msft_net_pnl) < 1e-3
 #
-# def test_portfolio_on_fill_and_equity(event_queue):
-#     portfolio = Portfolio(events=event_queue, initial_cash=10000)
+# def test_portfolio_on_fill_and_equity(default_settings):
+#     portfolio = Portfolio(settings=default_settings)
 #     portfolio.update_price("AAPL", 100.0)
 #
 #     signal = SignalEvent(symbol="AAPL", datetime=datetime.now(), signal_type="BUY")
-#     portfolio.on_signal(signal)
-#     assert not event_queue.empty()
-#     order = event_queue.get()
+#
+#     # assert not event_queue.empty()
+#     order = portfolio.on_signal(signal)
 #     assert isinstance(order, OrderEvent)
 #
 #     fill = FillEvent(symbol="AAPL", price=100.0, quantity=10, direction="BUY", datetime=datetime.now())
 #     portfolio.on_fill(fill)
-#     assert portfolio.holdings["AAPL"] == 10
+#     # assert portfolio.holdings["AAPL"] == 10
 #     assert portfolio.cash == 9000
 #     assert round(portfolio.equity, 2) == 10000.0
-#
+# #
 #
 # # def test_portfolio_stats(event_queue):
 # #     portfolio = Portfolio(events=event_queue, initial_cash=10000)

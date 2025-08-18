@@ -17,10 +17,11 @@ from data import db
 from plotly.subplots import make_subplots
 import trader.statistics as Stats
 
-
 # ---------------------------
 # Helper Functions
 # ---------------------------
+
+from utilts.logs import logs
 
 
 def plot_drawdowns(summary):
@@ -177,8 +178,9 @@ def main():
 
     # Backtest and performance
     if st.button("Run Backtest"):
-        bt = Backtest(data, settings=settings)
+        bt = Backtest(data=data, settings=settings)
         bt.run()
+        # logs.record_log(bt.summary())
         performance = PerformanceAnalyzer(portfolio=bt.portfolio)
         summary = performance.summary()
 
@@ -187,6 +189,8 @@ def main():
 
         st.subheader("Performance Table")
         st.table(performance._stats_table(summary))
+
+        print(performance._stats_table(summary))
 
         # Equity Curves
         st.subheader("Equity Curves")

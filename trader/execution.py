@@ -1,7 +1,7 @@
 # execution.py
 from __future__ import annotations
 
-from trader.events import FillEvent, EventType, OrderEvent
+from trader.events import FillEvent, EventType, OrderEvent, Event
 from utilts.logs import logs
 
 from trader.config import Settings
@@ -13,17 +13,17 @@ class ExecutionHandler:
         "SELL": -1
     }
 
-    def __init__(self, events, settings: Settings):
-        self.events = events
+    def __init__(self, settings: Settings):
+        # self.events = events
         self.slippage_pct = settings.trading.SLIPPAGE
         self.settings = settings
 
     def execute_order(self, order_event: OrderEvent, market_price: float, prev_close: float | None = None) -> None:
-
+        skip_event = Event(None, None)  # hold
         if order_event.type != EventType.ORDER:
             message = f"Order type={order_event.type} != EventType.ORDER={EventType.ORDER} not implemented"
             logs.record_log(message=message, level=3)
-            return
+            return skip_event
 
         symbol = order_event.symbol
         event_direction = order_event.direction
@@ -38,18 +38,18 @@ class ExecutionHandler:
         elif order_type == "LIMIT":
             if event_direction == "BUY" and market_price > order_event.limit_price:
                 # logs.record_log(f"[LIMIT UP] Blocked BUY: {symbol} at {close}", 2)
-                return  # Can't execute at worse price
+                return skip_event  # Can't execute at worse price
 
             if event_direction == "SELL" and market_price < order_event.limit_price:
                 message = f"Order for {symbol} did not meet the limit price, waiting for better conditions."
                 logs.record_log(message=message, level=3)
-                return
+                return skip_event
 
             executed_price = order_event.limit_price
         else:
             message = f"Order for {symbol} not in order.order_type"
             logs.record_log(message=message, level=3)
-            return
+            return skip_event
 
         fill = FillEvent(
             symbol=symbol,
@@ -59,7 +59,8 @@ class ExecutionHandler:
             datetime=order_event.datetime
         )
         logs.record_log(f"Order for {repr(order_event)} with executed_price={executed_price} ")
-        self.events.put(fill)
+        # self.events.put(fill)
+        return fill
 
     def simulate_slippage(self, price, order, slippage_pct=None):
         """Slippage occurs when there is a discrepancy between the expected price and the actual execution price."""

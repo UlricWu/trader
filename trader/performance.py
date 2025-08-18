@@ -40,6 +40,7 @@ class PerformanceAnalyzer:
 
     def summary(self, equity=None):
         if equity is None:
+
             equity = self.portfolio.symbol_equity_df
 
         results = {'account': self._summary(equity.sum(axis=1))}

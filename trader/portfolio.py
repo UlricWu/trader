@@ -6,7 +6,7 @@ from typing import Dict
 import pandas as pd
 
 from collections import defaultdict
-from trader.events import OrderEvent, FillEvent, EventType, SignalEvent, MarketEvent
+from trader.events import OrderEvent, FillEvent, EventType, SignalEvent, MarketEvent, Event
 
 from utilts.logs import logs
 
@@ -81,9 +81,8 @@ class Portfolio:
     transfer_fee_rate = 0.00001  # 0.001% (sell only)
     commission_rate = 0.001  # 0.1%
 
-    def __init__(self, events, settings: Settings):
+    def __init__(self, settings: Settings):
 
-        self.events = events
         self.settings = settings
         self.cash = settings.trading.INITIAL_CASH  # reflects all costs accurately.
         self.risk_pct = settings.trading.RISK_PCT
@@ -128,6 +127,9 @@ class Portfolio:
             df = df[df[symbol] != 0].sort_index()
             retuslts.append(df)
 
+        if len(retuslts) == 0:
+            return pd.DataFrame()
+
         return pd.concat(retuslts)
 
     def on_signal(self, signal_event: SignalEvent):
@@ -137,25 +139,22 @@ class Portfolio:
 
         price = self.current_prices.get(symbol, 0)
 
+        skip_event = Event(None, None)  # hold
         if direction == "BUY":
             # Handle BUY or SELL signals with LIMIT price logic
             if self.cash < price * quantity:
                 message = f"SIGNAL={direction}  fail at  {quantity} because of cash {self.cash} < {price * quantity}"
                 logs.record_log(message=message, level=3)
-                return
+                return skip_event
 
         elif direction == "SELL" and symbol in self.positions:
 
             if self.positions[symbol].quantity < quantity:
                 message = f"SIGNAL={direction} {symbol} fail at quantity={quantity} because of not enough holdings {self.positions}"
                 logs.record_log(message=message, level=3)
-                return
-        # elif direction == 'HOLDING':
-        #     message = f"Unknown signal type: {direction} for {symbol} holding {self.positions} at {signal_event.datetime}  "
-        #     logs.record_log(message=message, level=3)
-        #     return
+                return skip_event
 
-        self.events.put(OrderEvent(symbol, "MKT", quantity, direction, signal_event.datetime))
+        return OrderEvent(symbol, "MKT", quantity, direction, signal_event.datetime)
 
     def on_fill(self, event: FillEvent) -> None:
         """

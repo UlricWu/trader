@@ -39,6 +39,7 @@ class DailyBarDataHandler:
         return self.symbol_data[self.symbol_data['symbol'] == symbol]
 
     def _generate_index_iterator(self):
+
         self.symbol_data.sort_values(by=["date", "symbol"], inplace=True)
         index = self.symbol_data['date']
         for date in index:

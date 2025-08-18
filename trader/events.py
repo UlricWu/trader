@@ -20,9 +20,14 @@ class EventType(str, Enum):
 
 @dataclass
 class Event:
-    type: EventType
+    type: EventType | None
     datetime: datetime
-
+    def is_empty(self) -> bool:
+        """
+        Check if the event is 'empty' (not fully initialized).
+        Useful for safely handling default or placeholder events.
+        """
+        return self.type is None or self.datetime is None
 
 @dataclass
 class MarketEvent(Event):
