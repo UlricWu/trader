@@ -5,7 +5,7 @@ from typing import Optional
 
 from trader.events import EventType, Event
 from trader.portfolio import Portfolio
-from trader.rulestrategy import RuleStrategy
+from trader.strategy import RuleStrategy
 from trader.execution import ExecutionHandler
 from trader.data_handler import DailyBarDataHandler
 from trader.config import Settings
@@ -94,16 +94,4 @@ class Backtest:
             logs.record_log(f"Unknown event type: {event.type}", 3)
 
     def summary(self):
-        if self.strategy and hasattr(self.strategy, "predictions"):
-            preds = self.strategy.predictions
-            if preds:
-                correct = sum(1 for p, a in preds if p == a)
-                accuracy = correct / len(preds)
-                print(f"ML Prediction Accuracy: {accuracy:.2%} ({correct}/{len(preds)})")
-
-            # if preds:
-            #     correct = sum(1 for prob, a in preds if (prob >= 0.5) == a)
-            #     accuracy = correct / len(preds)
-            #     avg_conf = sum(abs(prob - 0.5) for prob, _ in preds) / len(preds) * 2
-            #     print(f"ML Prediction Accuracy: {accuracy:.2%} ({correct}/{len(preds)})")
-            #     print(f"Avg Prediction Confidence: {avg_conf:.2%}")
+        self.strategy.summary()

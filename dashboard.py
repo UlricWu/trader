@@ -4,11 +4,12 @@
 # @Project : trader
 # @Author  : wsw
 # @Time    : 2025/8/15
-
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+from matplotlib import pyplot as plt
 
 from trader.config import load_settings
 from trader.backtest_engine import Backtest
@@ -16,119 +17,18 @@ from trader.performance import PerformanceAnalyzer
 from data import db
 from plotly.subplots import make_subplots
 import trader.statistics as Stats
-from trader.rulestrategy import MLStrategy
+# dashboard.py
+from trader.visualization import (
+    plot_daily_pnl, plot_drawdowns, plot_heatmap,
+    plot_price_trend_with_trades, plot_pnl_distribution,
+    plot_win_loss, plot_rolling_sharpe, plot_symbol_contribution
+)
+from trader.strategy import MLStrategy
 # ---------------------------
 # Helper Functions
 # ---------------------------
 
 from utilts.logs import logs
-
-
-def plot_drawdowns(summary):
-    fig = go.Figure()
-    for sym in summary.keys():
-        if sym == 'account':
-            continue
-        equity = summary[sym]["equity"]
-        drawdown = equity / equity.cummax() - 1
-        fig.add_trace(go.Scatter(
-            x=drawdown.index, y=drawdown.values * 100,
-            mode='lines', name=sym, fill='tozeroy'
-        ))
-    fig.update_layout(
-        title="Drawdowns (%)",
-        yaxis_title="Drawdown (%)",
-        xaxis_title="Date",
-        hovermode="x unified",
-        template="plotly_white"
-    )
-    return fig
-
-
-def plot_heatmap(summary):
-    symbols = [s for s in summary.keys() if s != "account"]
-
-    fig = make_subplots(
-        rows=1,
-        cols=len(symbols),
-        subplot_titles=symbols
-    )
-
-    for col, sym in enumerate(symbols, start=1):
-        pivot_table = Stats._monthly_return_matrix(summary[sym]["returns"])
-        heatmap = go.Heatmap(
-            z=pivot_table.values,
-            x=pivot_table.columns,
-            y=pivot_table.index,
-            colorscale="RdYlGn",
-            zmin=-0.1,  # adjust scale for returns
-            zmax=0.1,
-            colorbar=dict(title="Return", x=1.0 + (0.05 * (col - 1)))
-        )
-        fig.add_trace(heatmap, row=1, col=col)
-
-    fig.update_layout(
-        height=400,
-        width=300 * len(symbols),
-        title="Monthly Return Heatmap per Symbol",
-        showlegend=False,
-        template="plotly_white"
-    )
-
-    return fig
-
-
-def plot_price_trend_with_trades(df, bt, symbols):
-    fig = go.Figure()
-    for sym in symbols:
-        # Price line
-        price_data = df[df["ts_code"] == sym].set_index("trade_date").sort_index()
-        fig.add_trace(go.Scatter(
-            x=price_data.index, y=price_data["close"],
-            mode='lines', name=sym
-        ))
-
-        # Trade markers
-        trades = [t for t in bt.portfolio.transactions if t.symbol == sym]
-        if not trades:
-            continue
-
-        df_trades = pd.DataFrame([{
-            "direction": t.direction,
-            "price": round(t.price, 2),
-            "quantity": t.quantity,
-            "realized_pnl": round(t.realized_pnl, 2),
-            "date": pd.to_datetime(t.date)
-        } for t in trades]).set_index("date")
-
-        fig.add_scatter(
-            x=df_trades.index,
-            y=df_trades["price"],
-            mode="markers",
-            marker=dict(
-                symbol=["triangle-up" if d == "BUY" else "triangle-down" for d in df_trades["direction"]],
-                color=["red" if d == "BUY" else "green" for d in df_trades["direction"]],
-                size=8
-            ),
-            name='',
-            hovertemplate=(
-                "Price: %{y}<br>"
-                "Qty: %{customdata[0]}<br>"
-                "Realized PnL: %{customdata[1]}<extra></extra>"
-            ),
-            customdata=df_trades[["quantity", "realized_pnl"]].values
-        )
-
-    fig.update_layout(
-        title="Price Trend with Buy/Sell Signals",
-        xaxis_title="Date",
-        yaxis_title="Price",
-        legend=dict(orientation="h", y=1.05),
-        hovermode="x unified",
-        template="plotly_white"
-    )
-    fig.update_xaxes(showgrid=True, gridwidth=0.5, gridcolor='LightGray')
-    return fig
 
 
 # ---------------------------
@@ -188,10 +88,18 @@ def main():
         # Portfolio Summary Table
         st.header("Portfolio Summary Metrics")
 
+        # Daily PnL TradesViz-style
+        st.subheader("Daily PnL")
+
+        daily_pnl_fig = plot_daily_pnl(summary)
+        st.plotly_chart(daily_pnl_fig, use_container_width=True)
+
         st.subheader("Performance Table")
         st.table(performance._stats_table(summary))
 
-        print(performance._stats_table(summary))
+        with pd.option_context('display.max_rows', None, 'display.max_columns',
+                               None):  # more options can be specified also
+            print(performance._stats_table(summary))
 
         # Equity Curves
         st.subheader("Equity Curves")
@@ -211,6 +119,19 @@ def main():
         # Price Trend with Trades
         st.subheader("Price Trend with Executed Trades")
         st.plotly_chart(plot_price_trend_with_trades(df, bt, symbols), use_container_width=True)
+
+        # Extra Analytics
+        st.subheader("PnL Distribution")
+        st.plotly_chart(plot_pnl_distribution(summary), use_container_width=True)
+
+        st.subheader("Win/Loss Breakdown")
+        st.plotly_chart(plot_win_loss(bt), use_container_width=True)
+
+        st.subheader("Rolling Sharpe Ratio")
+        st.plotly_chart(plot_rolling_sharpe(summary), use_container_width=True)
+
+        st.subheader("Symbol Contribution")
+        st.plotly_chart(plot_symbol_contribution(bt), use_container_width=True)
 
 
 if __name__ == "__main__":

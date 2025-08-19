@@ -40,7 +40,6 @@ class PerformanceAnalyzer:
 
     def summary(self, equity=None):
         if equity is None:
-
             equity = self.portfolio.symbol_equity_df
 
         results = {'account': self._summary(self.equity_df)}
@@ -55,6 +54,7 @@ class PerformanceAnalyzer:
         max_dd, dd_dur = stats.max_drawdown_and_duration(e)
         sharpe = stats.sharpe_ratio(e)
         return {
+            "daily_pnl": stats.aggregated_daily_pnl(e),
             "equity": e,
             "returns": daily,
             "sharpe": sharpe,
@@ -70,7 +70,7 @@ class PerformanceAnalyzer:
         summary = self.summary()
 
         n_symbols = len(summary.keys())
-        n_panels = 3  # Equity, Drawdown, table, Monthly Returns
+        n_panels = 3  # daily_pnl, Equity, Drawdown, table, Monthly Returns
         fig, axes = plt.subplots(n_panels + n_symbols, 1, figsize=(12, 8))
 
         # 1. Equity curve

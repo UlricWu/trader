@@ -88,6 +88,18 @@ def daily_returns(equity) -> pd.DataFrame:
     return round_float(equity.dropna().pct_change().fillna(0))
 
 
+def aggregated_daily_pnl(equity) -> pd.Series:
+    """
+    Return aggregated daily PnL series.
+    """
+    equity = _ensure_series(equity)
+
+    pnl = equity.diff().dropna()
+    daily_pnl = pnl.groupby(pnl.index.date).sum()
+    daily_pnl.index = pd.to_datetime(daily_pnl.index)
+    return daily_pnl
+
+
 def _monthly_return_matrix(returns: pd.DataFrame):
     month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]

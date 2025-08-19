@@ -60,12 +60,9 @@ class BaseStrategy(ABC):
         """
         pass
 
-    # def summary(self):
-    #     correct = sum(1 for prob, a in preds if (prob >= 0.5) == a)
-    #     accuracy = correct / len(preds)
-    #     avg_conf = sum(abs(prob - 0.5) for prob, _ in preds) / len(preds) * 2
-    #     print(f"ML Prediction Accuracy: {accuracy:.2%} ({correct}/{len(preds)})")
-    #     print(f"Avg Prediction Confidence: {avg_conf:.2%}")
+    @abstractmethod
+    def summary(self):
+        pass
 
 
 class RuleStrategy(BaseStrategy):
@@ -107,6 +104,9 @@ class RuleStrategy(BaseStrategy):
         # self.predictions.append((pred, actual))
 
         return skip_event
+
+    def summary(self):
+        pass
 
 
 class MLStrategy(BaseStrategy):
@@ -195,6 +195,14 @@ class MLStrategy(BaseStrategy):
             raise ValueError(f"Missing attribute in MarketEvent: {e}")
 
         return df
+
+    def summary(self):
+        correct = sum(1 for p, a in self.predictions if p == a)
+        accuracy = correct / len(self.predictions)
+        avg_conf = sum(abs(prob - 0.5) for prob, _ in self.predictions) / len(self.predictions) * 2
+
+        print(f"ML Prediction Accuracy: {accuracy:.2%} ({correct}/{len(self.predictions)})")
+        print(f"Avg Prediction Confidence: {avg_conf:.2%}")
 
 #
 # from trader.events import SignalEvent, EventType

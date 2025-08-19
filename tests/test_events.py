@@ -8,7 +8,7 @@
 from trader.events import MarketEvent, EventType, OrderEvent, SignalEvent
 from datetime import datetime
 from unittest.mock import MagicMock
-from trader.rulestrategy import RuleStrategy
+from trader.strategy import RuleStrategy
 from trader.execution import ExecutionHandler
 
 

@@ -7,7 +7,7 @@
 
 import pytest
 from trader.events import MarketEvent, EventType, SignalEvent
-from trader.rulestrategy import RuleStrategy
+from trader.strategy import RuleStrategy
 from queue import Queue
 from datetime import datetime
 

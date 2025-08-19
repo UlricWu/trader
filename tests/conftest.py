@@ -10,7 +10,7 @@ import pytest
 import queue
 from trader.events import EventType, MarketEvent
 from trader.data_handler import DailyBarDataHandler
-from trader.rulestrategy import RuleStrategy
+from trader.strategy import RuleStrategy
 from trader.execution import ExecutionHandler
 from trader.portfolio import Portfolio
 from datetime import datetime, timedelta
