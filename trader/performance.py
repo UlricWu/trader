@@ -43,7 +43,7 @@ class PerformanceAnalyzer:
 
             equity = self.portfolio.symbol_equity_df
 
-        results = {'account': self._summary(equity.sum(axis=1))}
+        results = {'account': self._summary(self.equity_df)}
         for col in equity.columns:
             e = equity[col]
             results[col] = self._summary(e)
@@ -120,6 +120,9 @@ class PerformanceAnalyzer:
     def _equity_curve_df(self, summary):
         lst = []
         for sym, s in summary.items():
+            if sym == 'account':
+                # print(s.head())
+                continue
             temp = s['equity'].copy()
             temp.name = sym
             lst.append(temp)

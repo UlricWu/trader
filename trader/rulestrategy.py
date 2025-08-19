@@ -8,6 +8,15 @@
 # import numpy as np
 
 
+# ml_strategy.py
+from collections import defaultdict
+import numpy as np
+import pandas as pd
+
+from trader.events import EventType, MarketEvent, SignalEvent, Event
+from utilts import logs
+from trader.config import Settings
+
 # strategy.py
 import os
 import pickle
@@ -29,6 +38,7 @@ from collections import defaultdict
 from typing import List
 
 from trader.events import EventType, MarketEvent, SignalEvent
+from trader.signal_generator import MLSignalGenerator
 from utilts.logs import logs
 
 
@@ -97,6 +107,94 @@ class RuleStrategy(BaseStrategy):
         # self.predictions.append((pred, actual))
 
         return skip_event
+
+
+class MLStrategy(BaseStrategy):
+    """
+    ML-based strategy for event-driven backtesting.
+    Only generates signals based on model predictions.
+    """
+
+    def __init__(self, settings: Settings, model_class=MLSignalGenerator):
+        super().__init__(settings=settings)
+        self.prices = defaultdict(list)
+        self.signal_generator = model_class(settings)
+        self.predictions = []  # list of (predicted, actual)
+        self.current_position = "FLAT"  # "LONG" or "FLAT"
+
+    def on_market(self, event: MarketEvent) -> Event:
+
+        skip_event = Event(None, None)  # hold
+
+        if event.type != EventType.MARKET:
+            logs.record_log(f"Skipping non-market event {event}", 3)
+            return skip_event
+
+        # Update historical bars
+        self.prices[event.symbol].append(event)
+
+        windows = self.settings.model.training_windows
+        if len(self.prices[event.symbol]) <= windows:
+            logs.record_log(
+                f"Not enough data for {event.symbol}: {len(self.prices[event.symbol])} < {windows}",
+                2
+            )
+            return skip_event
+
+        # Generate features
+        df = self._bars_to_dataframe(self.prices[event.symbol])
+        signal_type = self._generate_signal(df)
+
+        if not signal_type:
+            return skip_event
+
+        # Return a signal (Backtest engine will enqueue it)
+        return SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type=signal_type)
+
+    # -----------------------------
+    # Internal Methods
+    # -----------------------------
+    def _generate_signal(self, df: pd.DataFrame) -> str:
+        """Generate BUY/SELL/HOLD signal based on ML prediction."""
+        signal = "HOLD"
+        pred = self.signal_generator.generate_signals(df)
+
+        if pred is None or np.isnan(pred):
+            return ""
+
+        # Optional: skip low-confidence predictions
+        confidence = abs(pred)
+        if 0 < confidence <= self.settings.model.min_confidence_to_trade:
+            logs.record_log(f"Skip prediction {pred} with low confidence {confidence}", 2)
+            return ""
+
+        if pred == 1 and self.current_position == "FLAT":
+            self.current_position = "LONG"
+            signal = "BUY"
+        elif pred == 0 and self.current_position == "LONG":
+            self.current_position = "FLAT"
+            signal = "SELL"
+
+        # Track predictions vs ground truth
+        if "Target" in df.columns:
+            actual = df["Target"].iloc[-1]
+            self.predictions.append((pred, actual))
+
+        return signal
+
+    def _bars_to_dataframe(self, bars: list[MarketEvent]) -> pd.DataFrame:
+        """Convert list of MarketEvent objects to a DataFrame for ML model."""
+        try:
+            df = pd.DataFrame([{
+                "open": b.open,
+                "high": b.high,
+                "low": b.low,
+                "close": b.close
+            } for b in bars])
+        except AttributeError as e:
+            raise ValueError(f"Missing attribute in MarketEvent: {e}")
+
+        return df
 
 #
 # from trader.events import SignalEvent, EventType
@@ -194,7 +292,7 @@ class RuleStrategy(BaseStrategy):
 #     #     elif last_signal == -1 and self.current_position[event.symbol] == "LONG":
 #     #         self.current_position[event.symbol] = "FLAT"
 #     #         self.events.put(SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type="SELL"))
-#
+
 # #
 # # class MLSignalGenerator:
 # #     def __init__(self, train_window: int = 60):
@@ -243,120 +341,84 @@ class RuleStrategy(BaseStrategy):
 # #         return prob_up
 # #
 # #
-# # class MLStrategy(BaseStrategy):
-# #     def __init__(self, events, settings: Settings, model=MLSignalGenerator):
-# #         super().__init__(events, settings)
-# #         self.prices = defaultdict(list)
-# #
-# #         self.signal_generator = model()
-# #         self.predictions = []  # (predicted, actual)
-# #
-# #         self.current_position = "FLAT"  # or "LONG"
-# #
-# #         self.prob = settings.model.prob
-# #
-# #     def on_market(self, event):
-# #         if event.type != EventType.MARKET:
-# #             logs.record_log(f"Skipping {event}", 3)
-# #             return
-# #
-# #         # Update the price history for each symbol
-# #         self.prices[event.symbol].append(event)
-# #
-# #         windows = self.settings.model.training_windows
-# #         if len(self.prices[event.symbol]) <= windows + 1:
-# #             logs.record_log(
-# #                 f"Skipping {event} because there is not enough data ({len(self.prices[event.symbol])} < {windows})",
-# #                 2
-# #             )
-# #
-# #             return
-# #
-# #         # 1. Feature generation
-# #         df = self._bars_to_dataframe(self.prices[event.symbol])
-# #
-# #         signal_type = self._generate_signal(df)
-# #         if signal_type == 'HOLDING':
-# #             logs.record_log(f'holding prediction {event}', )
-# #             return  # error
-# #
-# #         signal = SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type=signal_type)
-# #         self.events.put(signal)
-# #
-# #     def _generate_signal(self, df):
-# #         signal = 'HOLD'
-# #         if self.prob:
-# #             pred = self.signal_generator.train_and_predict_proba(df)
-# #
-# #             if pred is None or np.isnan(pred):
-# #                 return ''
-# #
-# #             # optional min confidence check
-# #             confidence = abs(pred - 0.5)
-# #             if 0 < confidence <= self.settings.model.min_confidence_to_trade:
-# #                 logs.record_log(f'skip because pred probability ={pred} with low confidence={confidence}')
-# #                 return ''
-# #
-# #             # 3. Send Signal
-# #             if pred == 1 and self.current_position == "FLAT":
-# #                 # Generate LONG signal
-# #
-# #                 self.current_position = "LONG"
-# #                 signal = 'BUY'
-# #             elif pred == 0 and self.current_position == "LONG":
-# #                 # Generate EXIT signal
-# #
-# #                 self.current_position = "FLAT"
-# #                 signal = 'SELL'
-# #             # Else, hold position
-# #
-# #         else:
-# #             pred = self.signal_generator.train_and_predict(df)
-# #
-# #             if pred not in {1, 0, -1}:
-# #                 logs.record_log('skip because pred is {pred}')
-# #                 return signal
-# #             if pred == 1 and self.current_position == "FLAT":
-# #                 signal = 'BUY'
-# #             elif pred == 0 and self.current_position == "LONG":
-# #                 signal = 'SELL'
-# #                 self.current_position = "FLAT"
-# #
-# #         actual = df["Target"].iloc[-1]  # ground truth from last bar
-# #         self.predictions.append((pred, actual))
-# #
-# #         return signal
-# #
-# #     def _bars_to_dataframe(self, lists):
-# #
-# #         # ===== Feature Extraction =====
-# #         try:
-# #             # features = [getattr(event, feat) for feat in self.feature_list]
-# #             features = pd.DataFrame(lists)[["open", "high", "low", "close"]]
-# #         except AttributeError as e:
-# #             raise ValueError(f"Missing feature in MarketEvent: {e}")
-# #
-# #         return features
-# #
-# #
-# # class Strategy(BaseStrategy):
-# #     slippage = 0.01
-# #
-# #     def __init__(self, events, settings: Settings):
-# #         super().__init__(events, settings)
-# #         self.prices = defaultdict(list)
-# #         self.window = settings.trading.WINDOWS
-# #
-# #     def on_market(self, event):
-# #         if event.type != EventType.MARKET:
-# #             logs.record_log(f"Skipping {event}", 3)
-# #             return
-# #
-# #         # Update the price history for each symbol
-# #         self.prices[event.symbol].append(event.close)
-# #
-# #         if len(self.prices[event.symbol]) < self.window:
-# #             # a guard clause that ensures enough data exists before making a decision.
-# #             logs.record_log(f"Skipping {event} because there are price {self.prices} less than {self.window}", 2)
-# #             return
-# #
+# class MLStrategy(BaseStrategy):
+#     def __init__(self, events, settings: Settings, model=MLSignalGenerator):
+#         super().__init__(events, settings)
+#         self.prices = defaultdict(list)
+#
+#         self.signal_generator = model(settings)
+#         self.predictions = []  # (predicted, actual)
+#
+#         self.current_position = "FLAT"  # or "LONG"
+#
+#         self.prob = settings.model.prob
+#
+#     def on_market(self, event):
+#         if event.type != EventType.MARKET:
+#             logs.record_log(f"Skipping {event}", 3)
+#             return
+#
+#         # Update the price history for each symbol
+#         self.prices[event.symbol].append(event)
+#
+#         windows = self.settings.model.training_windows
+#         if len(self.prices[event.symbol]) <= windows + 1:
+#             logs.record_log(
+#                 f"Skipping {event} because there is not enough data ({len(self.prices[event.symbol])} < {windows})",
+#                 2
+#             )
+#
+#             return
+#
+#         # 1. Feature generation
+#         df = self._bars_to_dataframe(self.prices[event.symbol])
+#
+#         signal_type = self._generate_signal(df)
+#         if signal_type == 'HOLDING':
+#             logs.record_log(f'holding prediction {event}', )
+#             return  # error
+#
+#         signal = SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type=signal_type)
+#
+#
+#     def _generate_signal(self, df):
+#         signal = 'HOLD'
+#         pred = self.signal_generator.generate_signals(df)
+#
+#         if pred is None or np.isnan(pred):
+#             return ''
+#
+#         # optional min confidence check
+#         confidence = abs(pred - 0.5)
+#         if 0 < confidence <= self.settings.model.min_confidence_to_trade:
+#             logs.record_log(f'skip because pred probability ={pred} with low confidence={confidence}')
+#             return ''
+#
+#         # 3. Send Signal
+#         if pred == 1 and self.current_position == "FLAT":
+#             # Generate LONG signal
+#
+#             self.current_position = "LONG"
+#             signal = 'BUY'
+#         elif pred == 0 and self.current_position == "LONG":
+#             # Generate EXIT signal
+#
+#             self.current_position = "FLAT"
+#             signal = 'SELL'
+#         # Else, hold position
+#
+#         actual = df["Target"].iloc[-1]  # ground truth from last bar
+#         self.predictions.append((pred, actual))
+#
+#         return signal
+#
+#     def _bars_to_dataframe(self, lists):
+#
+#         # ===== Feature Extraction =====
+#         try:
+#             # features = [getattr(event, feat) for feat in self.feature_list]
+#             features = pd.DataFrame(lists)[["open", "high", "low", "close"]]
+#         except AttributeError as e:
+#             raise ValueError(f"Missing feature in MarketEvent: {e}")
+#
+#         return features

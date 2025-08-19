@@ -16,7 +16,7 @@ from trader.performance import PerformanceAnalyzer
 from data import db
 from plotly.subplots import make_subplots
 import trader.statistics as Stats
-
+from trader.rulestrategy import MLStrategy
 # ---------------------------
 # Helper Functions
 # ---------------------------
@@ -179,8 +179,9 @@ def main():
     # Backtest and performance
     if st.button("Run Backtest"):
         bt = Backtest(data=data, settings=settings)
+        # bt = Backtest(data=data, settings=settings, strategy_class=MLStrategy)
+
         bt.run()
-        # logs.record_log(bt.summary())
         performance = PerformanceAnalyzer(portfolio=bt.portfolio)
         summary = performance.summary()
 

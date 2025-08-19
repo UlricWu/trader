@@ -79,18 +79,6 @@ class MLSignalGenerator(SignalGenerator):
         df["target"] = (df["Return_1d"].shift(-1) > 0).astype(int)
         return df.dropna()
 
-    #     def train_and_predict(self, df: pd.DataFrame) -> int:
-    #         df = self.prepare_features(df)
-    #         if len(df) < self.train_window + 1:
-    #             return 0  # Not enough data to train
-    #
-    #         X_test, X_train, y_train = self._split(df)
-    #
-    #         self.model.fit(X_train, y_train)
-    #         pred = self.model.predict(X_test)[0]
-    #         self.trained = True
-    #         return pred  # 1: Buy, 0: Hold/Sell
-
     def _split(self, df):
         # Split: train on [:-1], test on [-1] row
         train_df = df.iloc[-(self.train_window + 1):-1]

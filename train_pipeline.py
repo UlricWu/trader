@@ -7,7 +7,7 @@ from trader.backtest_engine import Backtest
 from trader.config import load_settings
 
 from trader.performance import PerformanceAnalyzer
-
+from trader.rulestrategy import MLStrategy
 # from trader.strategy import MLStrategy
 
 
@@ -25,9 +25,11 @@ def train():
     data = db.load_and_normalize_data(df)
     print(len(data))
 
-    bt = Backtest(data=data, settings=settings)
+    # bt = Backtest(data=data, settings=settings)
+    bt = Backtest(data=data, settings=settings, strategy_class=MLStrategy)
+
     bt.run()
-    print(bt.summary())
+    # print(bt.summary())
     perf = PerformanceAnalyzer(portfolio=bt.portfolio)
     print(perf.summary())
     perf.plot()

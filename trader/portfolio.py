@@ -79,6 +79,7 @@ class Portfolio:
         self.realized_pnl: Dict[str, float] = {}
         self.symbol_equity_history: Dict[str, List[Tuple[datetime, float]]] = {}
         self.history: List[Tuple[datetime, float]] = []
+        self.cash_records = []
 
     # -----------------------------
     # Properties
@@ -95,8 +96,14 @@ class Portfolio:
         return self.history
 
     @property
+    def cash_df(self) -> pd.DataFrame:
+        return pd.DataFrame(self.cash_records, columns=["date", "cash"]).groupby('date').sum()
+
+    @property
     def equity_df(self) -> pd.DataFrame:
-        return pd.DataFrame(self.history, columns=["datetime", "equity"]).set_index("datetime")
+        df = pd.DataFrame(self.history, columns=["datetime", "equity"]).groupby("datetime").sum()
+        return df
+        # assume same weight(quantity)
 
     @property
     def symbol_equity_df(self) -> pd.DataFrame:
@@ -200,8 +207,9 @@ class Portfolio:
             for symbol, pos in self.positions.items()
         }
         total_equity = sum(holdings_value.values()) + self.cash
+        self.cash_records.append((date, self.cash))
 
-        self.history.append((date, total_equity))
+        self.history.append((date, total_equity))  # account equity(symbol value+cash)
         self.daily_snapshots.append(
             DailySnapshot(
                 date=date,
@@ -214,6 +222,6 @@ class Portfolio:
 
         for symbol, value in holdings_value.items():
             if symbol not in self.symbol_equity_history:
-                self.symbol_equity_history[symbol] = []
+                self.symbol_equity_history[symbol] = []  # symbol equity
             if value:
                 self.symbol_equity_history[symbol].append((date, value))

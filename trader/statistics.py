@@ -1,3 +1,5 @@
+from typing import Tuple, Any
+
 import pandas as pd
 import numpy as np
 
@@ -73,9 +75,9 @@ def create_sortino_ratio(returns, periods=YEAR):
 def _ensure_series(data) -> pd.DataFrame:
     """Ensure input is a DataFrame; convert Series to DataFrame."""
     if isinstance(data, pd.Series):
-        return data
+        return data.dropna()
     elif isinstance(data, pd.DataFrame):
-        return data.squeeze()
+        return data.squeeze().dropna()
     else:
         raise TypeError(f"Input must be a pandas DataFrame or Series, got {type(data)}")
 
@@ -137,16 +139,43 @@ def cumulative_returns(equity) -> float:
     return round_float(cum)
 
 
-def max_drawdown_and_duration(equity) -> dict:
-    """Calculate max drawdown and its duration for each column."""
-    equity = _ensure_series(equity)
-    running_max = equity.cummax()
-    drawdown = (equity / running_max) - 1.0
-    max_dd = drawdown.min()
-    duration = equity.index.to_series().groupby((equity == running_max).cumsum()).cumcount()
-    max_duration = duration.max()
+# from __future__ import annotations
+from typing import Tuple, Union
+import pandas as pd
+import numpy as np
 
-    return round_float(max_dd), max_duration
+
+def max_drawdown_and_duration(e):
+    """
+    Compute maximum drawdown (negative float) and its duration in days.
+
+    If `e` is a Series -> returns (mdd_float, duration_days_int).
+    If `e` is a DataFrame -> returns (mdd_series, duration_series) aligned to columns.
+
+    Assumptions:
+      - Index represents time; function will try to convert to DatetimeIndex and sort.
+      - Values are equity/wealth levels (not returns).
+      - NaNs are ignored when possible.
+
+    Raises:
+      TypeError: if input is not a Series/DataFrame or index cannot be converted to datetime.
+    """
+
+    s = _ensure_series(e)
+    cummax = s.cummax()
+    dd = s.div(cummax) - 1.0
+
+    mdd = float(dd.min())  # negative number (e.g., -0.23 for -23%)
+    trough_ts = dd.idxmin()
+
+    # restrict to data up to trough to find peak before trough
+    pre = s.loc[:trough_ts].dropna()
+    if pre.empty:
+        return mdd, 0
+    peak_ts = pre.idxmax()
+
+    duration_days = int((trough_ts - peak_ts).days)
+    return mdd, max(duration_days, 0)
 
 # Example usage
 # if __name__ == "__main__":
