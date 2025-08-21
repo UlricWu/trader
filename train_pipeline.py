@@ -25,7 +25,6 @@ def train():
 
     df = db.extract_table(database='db/tutorial.db', end_day="20250205", start_day='20241001', ts_code=codes)
     data = db.load_and_normalize_data(df)
-    print(len(data))
 
     bt = Backtest(data=data, settings=settings)
     # bt = Backtest(data=data, settings=settings, strategy_class=MLStrategy)
@@ -33,8 +32,8 @@ def train():
     bt.run()
     # print(bt.summary())
     perf = PerformanceAnalyzer(portfolio=bt.portfolio)
-    with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified also
-        print(df)
+    # with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified also
+    #     print(df)
 
     print(perf.summary())
     perf.plot()

@@ -16,6 +16,7 @@ class EventType(str, Enum):
     SIGNAL = "SIGNAL"
     ORDER = "ORDER"
     FILL = "FILL"
+    SNAPSHOT = 'SNAPSHOT'  # <-- NEW
 
 
 @dataclass

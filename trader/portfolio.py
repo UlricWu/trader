@@ -168,6 +168,8 @@ class Portfolio:
         else:
             return
 
+        logs.record_log(f"succeed to fill {fill}")
+
         position.update_on_fill(fill)
 
         self.transactions.append(

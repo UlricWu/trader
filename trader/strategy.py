@@ -102,7 +102,7 @@ class RuleStrategy(BaseStrategy):
 
         # actual = df["Target"].iloc[-1]  # ground truth from last bar
         # self.predictions.append((pred, actual))
-
+        logs.record_log(f"on_market holding skip_event ={event}")
         return skip_event
 
     def summary(self):

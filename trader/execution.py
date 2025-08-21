@@ -39,6 +39,7 @@ class ExecutionHandler:
 
         executed_price = self._get_executed_price(order_event, market_price)
         if executed_price is None:
+            logs.record_log(f'no meet price for order {order_event}')
             return Event(None, None)  # Skip execution
 
         fill = FillEvent(
