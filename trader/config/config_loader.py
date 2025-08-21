@@ -45,6 +45,27 @@ class StrategySettings:
     strategy: str = 'ml'
     train_window: int = 30
 
+@dataclass
+class RiskSettings:
+    max_position_value_pct = 0.2
+    max_drawdown_pct = 0.15
+    default_qty = 100
+
+    max_leverage = 1.0
+    vol_target_annual = 0.20
+    vol_lookback = 20
+    min_trade_notional = 200.0
+    prob_enter = 0.55
+    prob_exit = 0.48
+    prob_size_k = 10.0
+    prob_size_mid = 0.60
+    min_size_fraction = 0.1
+    stop_loss_pct = 0.08
+    trailing_stop_pct = 0.06
+    take_profit_pct = None
+    max_daily_loss_pct = 0.03
+    cooldown_bars = 5
+
 
 @dataclass
 class MLSettings:
@@ -81,6 +102,7 @@ class Settings:
     trading: TradingSettings = field(default_factory=TradingSettings)
     strategy: StrategySettings = field(default_factory=StrategySettings)
     model: MLSettings = field(default_factory=MLSettings)
+    risk: RiskSettings = field(default_factory=RiskSettings)
 
 
 def load_settings(yaml_file: Optional[str] = None) -> Settings:
@@ -93,6 +115,7 @@ def load_settings(yaml_file: Optional[str] = None) -> Settings:
             trading=TradingSettings(**data.get('trading', {})),
             strategy=StrategySettings(**data.get('strategy', {})),
             model=MLSettings(**data.get('ml', {})),
+            risk=RiskSettings()
         )
     else:
         return Settings()

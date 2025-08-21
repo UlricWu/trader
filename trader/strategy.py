@@ -73,7 +73,7 @@ class RuleStrategy(BaseStrategy):
         self.prices = defaultdict(list)
         self.window = settings.trading.WINDOWS
 
-    def on_market(self, event):
+    def on_market(self, event)->Event:
         skip_event = Event(None, None)  # hold
         if event.type != EventType.MARKET:
             logs.record_log(f"Skipping {event}", 3)
@@ -163,10 +163,10 @@ class MLStrategy(BaseStrategy):
             return ""
 
         # Optional: skip low-confidence predictions
-        confidence = abs(pred)
-        if 0 < confidence <= self.settings.model.min_confidence_to_trade:
-            logs.record_log(f"Skip prediction {pred} with low confidence {confidence}", 2)
-            return ""
+        # confidence = abs(pred)
+        # if 0 < confidence <= self.settings.model.min_confidence_to_trade:
+        #     logs.record_log(f"Skip prediction {pred} with low confidence {confidence}", 2)
+        #     return ""
 
         if pred == 1 and self.current_position == "FLAT":
             self.current_position = "LONG"

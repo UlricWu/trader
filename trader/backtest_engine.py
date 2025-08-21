@@ -10,6 +10,7 @@ from trader.execution import ExecutionHandler
 from trader.data_handler import DailyBarDataHandler
 from trader.config import Settings
 from utilts.logs import logs
+from trader.risk_manager import RiskManager
 
 
 class Backtest:
@@ -31,6 +32,7 @@ class Backtest:
 
         self.execution_handler = ExecutionHandler(settings=settings)
         self.portfolio = Portfolio(settings=settings)
+        self.risk = RiskManager(settings=settings, portfolio=self.portfolio)
 
     # -----------------------------
     # Public API
@@ -73,7 +75,13 @@ class Backtest:
             if signal_event:
                 self.events.put(signal_event)
 
+
         elif event.type == EventType.SIGNAL:
+            decision = self.risk.decide(event)
+
+            if decision.is_empty():
+                logs.record_log("risk ")
+                return
             order_event = self.portfolio.on_signal(event)
             if order_event:
                 self.events.put(order_event)

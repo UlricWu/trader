@@ -122,6 +122,7 @@ class Portfolio:
         self.current_prices[market_event.symbol] = market_event.close
 
     def on_signal(self, signal: SignalEvent) -> Optional[OrderEvent]:
+
         symbol = signal.symbol
         direction = signal.signal_type
         price = self.current_prices.get(symbol, 0.0)
