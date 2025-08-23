@@ -13,6 +13,8 @@ from trader.risk_manager import RiskManager
 from trader.config import Settings
 from utilts.logs import logs
 
+from trader.features import FeatureEngineer
+
 
 class Backtest:
     """
@@ -38,13 +40,22 @@ class Backtest:
         # EventBus with emit -> queue.put
         self.bus = EventBus(emit_fn=self.events.put)
 
+        self.features = FeatureEngineer()
+
         # -----------------------------
         # Subscriptions with priorities
+        # FeatureEngineer → FeatureEvent → Strategy → SignalEvent → Portfolio.
         # -----------------------------
 
-        # MARKET: portfolio (update prices) → strategy (generate SIGNAL)
+        # MARKET → features
+        self.bus.subscribe(EventType.MARKET, self._on_market_features, priority=5)
         self.bus.subscribe(EventType.MARKET, self._on_market_portfolio, priority=10)
-        self.bus.subscribe(EventType.MARKET, self._on_market_strategy, priority=20)
+
+        # FEATURE → ML pipeline
+        # todo
+        # ML_FEATURE → strategy
+        # MARKET: portfolio (update prices) → strategy (generate SIGNAL)
+        self.bus.subscribe(EventType.FEATURE, self._on_market_strategy, priority=10)
 
         # SIGNAL: risk (filter) → portfolio (create ORDER)
         self.bus.subscribe(EventType.SIGNAL, self._on_signal_risk, priority=10)
@@ -78,7 +89,7 @@ class Backtest:
             # 2. Process event queue until empty
             while not self.events.empty():
                 event = self.events.get()
-                if event.is_empty():
+                if event is None:
                     continue
                 last_datetime = getattr(event, "datetime", None)
                 self._process_event(event)
@@ -93,34 +104,44 @@ class Backtest:
     # Adapters: existing components
     # =============================
 
-    def _on_snapshot(self, event: Event, bus: EventBus):
-        self.portfolio.record_daily_snapshot(event.datetime)  # event.data holds datetime
+    def _on_market_features(self, event: Event, bus: EventBus):
+        # print("start feature extraction...")
+        feature = self.features.on_market(event)
+        if feature.no_empty():
+            bus.emit(feature)
 
     def _on_market_portfolio(self, event: Event, bus: EventBus):
         """Update portfolio prices from latest market data."""
+        # print('start portfolio update...')
         self.portfolio.update_price(event)
 
     def _on_market_strategy(self, event: Event, bus: EventBus):
         """Strategy reacts to MARKET event and may generate a SIGNAL."""
         signal: Optional[SignalEvent] = self.strategy.on_market(event)
         if signal:
+            # print(f'strategy event={event} send signal={signal}')
             bus.emit(signal)
 
     def _on_signal_risk(self, event: Event, bus: EventBus):
         """Risk manager decides whether SIGNAL is allowed."""
+        # print('start risk manager')
         decision = self.risk.decide(event)
-        if decision is None or decision.is_empty():
+        if decision is None:
+            logs.record_log(f'risk manager detect risk and not approve for {event}',2)
             # Block propagation (portfolio won’t see it)
             return EventBus.CONSUME
 
     def _on_signal_portfolio(self, event: Event, bus: EventBus):
         """Portfolio converts SIGNAL into ORDER if allowed."""
+        # print('start portfolio')
         order: Optional[OrderEvent] = self.portfolio.on_signal(event)
         if order:
             bus.emit(order)
 
     def _on_order_exec(self, event: OrderEvent, bus: EventBus):
         """Execution handler converts ORDER into FILL."""
+
+        # print('start order exec')
         price = self.portfolio.current_prices.get(event.symbol)
         if price is None:
             logs.record_log(f"No market price for {event.symbol}", 3)
@@ -131,4 +152,8 @@ class Backtest:
 
     def _on_fill_portfolio(self, event: FillEvent, bus: EventBus):
         """Portfolio updates state from FILL event."""
+        # print('start fill portfolio')
         self.portfolio.on_fill(event)
+
+    def _on_snapshot(self, event: Event, bus: EventBus):
+        self.portfolio.record_daily_snapshot(event.datetime)  # event.data holds datetime

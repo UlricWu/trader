@@ -132,10 +132,10 @@ class Portfolio:
 
         if direction == "BUY" and self.cash < price * quantity:
             logs.record_log(f"Not enough cash for {symbol} BUY signal", level=3)
-            return skip_event
+            return
         if direction == "SELL" and (symbol not in self.positions or self.positions[symbol].quantity < quantity):
             logs.record_log(f"Not enough holdings for {symbol} SELL signal", level=3)
-            return skip_event
+            return
 
         return OrderEvent(symbol, "MKT", quantity, direction, signal.datetime)
 

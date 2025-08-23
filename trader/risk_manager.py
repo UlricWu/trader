@@ -62,12 +62,12 @@ class RiskManager:
         Take a SignalEvent and decide whether to allow it.
         Returns an OrderEvent if allowed, otherwise None.
         """
-        skip_event = Event(None, None)
+
         if event.is_empty():
-            return skip_event  # block
+            return  # block
 
         if event.type not in {EventType.SIGNAL, EventType.ORDER}:
-            return skip_event  # let non-trading events pass
+            return  # let non-trading events pass
 
         # If it's an order, clamp size. To prevent oversized trades.
         if hasattr(event, "quantity"):
@@ -76,12 +76,12 @@ class RiskManager:
 
         # 🔹 Check portfolio-level capital protection
         if self._breach_drawdown():
-            return skip_event  # block trading completely
+            return  # block trading completely
 
         # 🔹 Check stop-loss rules
         if event.type == EventType.SIGNAL:
             if not self._check_stop_loss(event.symbol):
-                return skip_event  # block this trade
+                return  # block this trade
 
         logs.record_log(f"risk approve Signal {event} ")
 

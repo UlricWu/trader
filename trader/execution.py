@@ -35,12 +35,12 @@ class ExecutionHandler:
                 f"Invalid event type {order_event.type}, expected ORDER.",
                 level=3
             )
-            return Event(None, None)
+            return
 
         executed_price = self._get_executed_price(order_event, market_price)
         if executed_price is None:
             logs.record_log(f'no meet price for order {order_event}')
-            return Event(None, None)  # Skip execution
+            return   # Skip execution
 
         fill = FillEvent(
             symbol=order_event.symbol,
