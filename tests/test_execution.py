@@ -117,5 +117,5 @@ def test_limit_order_fills_when_price_matches(event_execution_handler):
     # Simulate limit order execution
     fill_event2 = event_execution_handler.execute_order(order_event=limit_order, market_price=daily_bar.high)
 
-    assert fill_event2.is_empty()
+    assert fill_event2 is None
 

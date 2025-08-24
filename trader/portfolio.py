@@ -128,8 +128,6 @@ class Portfolio:
         price = self.current_prices.get(symbol, 0.0)
         quantity = 10  # TODO: could calculate based on risk_pct
 
-        skip_event = Event(None, None)  # hold
-
         if direction == "BUY" and self.cash < price * quantity:
             logs.record_log(f"Not enough cash for {symbol} BUY signal", level=3)
             return
@@ -168,7 +166,6 @@ class Portfolio:
         else:
             return
 
-        logs.record_log(f"succeed to fill {fill}")
 
         position.update_on_fill(fill)
 

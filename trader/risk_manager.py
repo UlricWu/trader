@@ -83,7 +83,7 @@ class RiskManager:
             if not self._check_stop_loss(event.symbol):
                 return  # block this trade
 
-        logs.record_log(f"risk approve Signal {event} ")
+        # logs.record_log(f"risk approve Signal {event} ")
 
         return event
 

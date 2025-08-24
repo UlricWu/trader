@@ -187,16 +187,4 @@ def max_drawdown_and_duration(e):
     peak_ts = pre.idxmax()
 
     duration_days = int((trough_ts - peak_ts).days)
-    return mdd, max(duration_days, 0)
-
-# Example usage
-# if __name__ == "__main__":
-#     dates = pd.date_range("2024-01-01", periods=10, freq="D")
-#     eq_series = pd.Series([100, 102, 101, 99, 98, 97, 99, 100, 101, 103], index=dates, name="strategy_A")
-#     eq_df = pd.DataFrame({
-#         "strategy_A": [100, 102, 101, 99, 98, 97, 99, 100, 101, 103],
-#         "strategy_B": [50, 51, 50.5, 52, 51, 50, 49, 51, 52, 53]
-#     }, index=dates)
-#
-#     print("\nFrom Series Sharpe:", sharpe_ratio(eq_series))
-#     print("From DF Sharpe:", sharpe_ratio(eq_df))
+    return round_float(mdd), max(duration_days, 0)

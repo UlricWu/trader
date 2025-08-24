@@ -63,6 +63,6 @@ def test_strategy_generates_signal(default_settings):
 
     signal1 = strategy.on_market(event1)
     signal2 = strategy.on_market(event2)
-    assert signal2.is_empty()
+    assert signal2 is None
     # strategy.window > 2 event -> Skipping
     # assert not mock_event_queue.put.called
