@@ -12,7 +12,7 @@ from collections import deque
 from typing import Deque, Dict, List, Tuple, Optional, Callable
 from sklearn.base import ClassifierMixin
 from sklearn.model_selection import cross_val_score, StratifiedKFold
-from trader.events import FeatureEvent, MLFeatureEvent
+from trader.events import AnalyticsEvent, MLFeatureEvent
 from utilts.logs import logs
 
 
@@ -75,7 +75,7 @@ class MLPipeline:
         self.counter: Dict[str, int] = {}
 
     # ---------- Event entry ----------
-    def on_feature(self, event: FeatureEvent) -> None:
+    def on_feature(self, event:AnalyticsEvent ) -> None:
         # print(f"start ={event}")
         if event.is_empty():
             return

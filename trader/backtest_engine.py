@@ -13,7 +13,8 @@ from trader.risk_manager import RiskManager
 from trader.config import Settings
 from utilts.logs import logs
 
-from trader.features import FeatureEngineer
+from trader.analytics.feature_store import FeatureStore
+from trader.analytics.engine import AnalyticsEngine
 
 
 class Backtest:
@@ -32,7 +33,8 @@ class Backtest:
         self.data_handler = DailyBarDataHandler(
             data=data, events=self.events, settings=settings
         )
-        self.strategy = strategy_class(settings=settings)
+        self.feature_store = FeatureStore()
+        self.strategy = strategy_class(settings=settings, feature_store=self.feature_store)
         self.execution_handler = ExecutionHandler(settings=settings)
         self.portfolio = Portfolio(settings=settings)
         self.risk = RiskManager(settings=settings, portfolio=self.portfolio)
@@ -40,22 +42,25 @@ class Backtest:
         # EventBus with emit -> queue.put
         self.bus = EventBus(emit_fn=self.events.put)
 
-        self.features = FeatureEngineer()
+        self.analytics = AnalyticsEngine(feature_store=self.feature_store)
 
         # -----------------------------
         # Subscriptions with priorities
         # FeatureEngineer → FeatureEvent → Strategy → SignalEvent → Portfolio.
         # -----------------------------
 
-        # MARKET → features
-        self.bus.subscribe(EventType.MARKET, self._on_market_features, priority=5)
+        # MARKET →
+        self.bus.subscribe(EventType.MARKET, self._on_analytics_feature, priority=5)
+        # self.bus.subscribe(EventType.ANALYTICS, self._on_analytics, priority=5)
+
         self.bus.subscribe(EventType.MARKET, self._on_market_portfolio, priority=10)
+        # ANALYTICS
 
         # FEATURE → ML pipeline
         # todo
         # ML_FEATURE → strategy
         # MARKET: portfolio (update prices) → strategy (generate SIGNAL)
-        self.bus.subscribe(EventType.FEATURE, self._on_market_strategy, priority=10)
+        self.bus.subscribe(EventType.ANALYTICS, self._on_market_strategy, priority=10)
 
         # SIGNAL: risk (filter) → portfolio (create ORDER)
         self.bus.subscribe(EventType.SIGNAL, self._on_signal_risk, priority=10)
@@ -104,9 +109,9 @@ class Backtest:
     # Adapters: existing components
     # =============================
 
-    def _on_market_features(self, event: Event, bus: EventBus):
+    def _on_analytics_feature(self, event: Event, bus: EventBus):
         # print("start feature extraction...")
-        feature = self.features.on_market(event)
+        feature = self.analytics.on_market(event)
         if feature.no_empty():
             bus.emit(feature)
 
@@ -117,17 +122,15 @@ class Backtest:
 
     def _on_market_strategy(self, event: Event, bus: EventBus):
         """Strategy reacts to MARKET event and may generate a SIGNAL."""
-        signal: Optional[SignalEvent] = self.strategy.on_market(event)
+        signal: Optional[SignalEvent] = self.strategy.on_analytics(event)
         if signal:
-            # print(f'strategy event={event} send signal={signal}')
             bus.emit(signal)
 
     def _on_signal_risk(self, event: Event, bus: EventBus):
         """Risk manager decides whether SIGNAL is allowed."""
-        # print('start risk manager')
         decision = self.risk.decide(event)
         if decision is None:
-            logs.record_log(f'risk manager detect risk and not approve for {event}',2)
+            logs.record_log(f'risk manager detect risk for {event}', 2)
             # Block propagation (portfolio won’t see it)
             return EventBus.CONSUME
 
@@ -141,7 +144,6 @@ class Backtest:
     def _on_order_exec(self, event: OrderEvent, bus: EventBus):
         """Execution handler converts ORDER into FILL."""
 
-        # print('start order exec')
         price = self.portfolio.current_prices.get(event.symbol)
         if price is None:
             logs.record_log(f"No market price for {event.symbol}", 3)

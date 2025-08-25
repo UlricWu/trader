@@ -11,6 +11,8 @@ from unittest.mock import MagicMock
 from trader.strategy import RuleStrategy
 from trader.execution import ExecutionHandler
 
+from trader.analytics.feature_store import FeatureStore
+
 
 def test_market_event(sample_market_event):
     assert sample_market_event.symbol == "AAPL"
@@ -55,14 +57,15 @@ def test_execution_handler_puts_fill_event(default_settings):
 
 
 def test_strategy_generates_signal(default_settings):
-    strategy = RuleStrategy(settings=default_settings)
+    feat = FeatureStore()
+    strategy = RuleStrategy(settings=default_settings, feature_store=feat)
 
     # Feed two events to trigger a signal
     event1 = MarketEvent(datetime(2024, 1, 1), "AAPL", 100, 101, 99, 100)
     event2 = MarketEvent(datetime(2024, 1, 2), "AAPL", 102, 103, 101, 102)
 
-    signal1 = strategy.on_market(event1)
-    signal2 = strategy.on_market(event2)
+    signal1 = strategy.on_analytics(event1)
+    signal2 = strategy.on_analytics(event2)
     assert signal2 is None
     # strategy.window > 2 event -> Skipping
     # assert not mock_event_queue.put.called

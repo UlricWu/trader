@@ -9,7 +9,8 @@
 from collections import defaultdict
 from typing import Callable, Dict, List, Tuple, Any
 
-
+from collections import defaultdict
+from typing import Callable, Dict, List, Type
 class EventBus:
     CONSUME = object()  # sentinel to stop propagation
 
@@ -17,8 +18,9 @@ class EventBus:
         """
         emit_fn: a function that enqueues new events (e.g., backtest.events.put)
         """
-        self._handlers: Dict[str, List[Tuple[int, Callable]]] = defaultdict(list)
+        self._handlers: Dict[Type, List[Callable]] = defaultdict(list)
         self._emit = emit_fn
+        # self._subs: Dict[Type, List[Callable]] = defaultdict(list)
 
     def subscribe(self, event_type: str, handler: Callable, priority: int = 100):
         """

@@ -12,7 +12,7 @@ class Database:
         self._conn = sqlite3.connect(name)
         self._cursor = self._conn.cursor()
 
-        logs.record_log(f'loading database={name}')
+        logs.record_log(f'init database={name}')
 
     def __enter__(self):
         return self
@@ -162,7 +162,7 @@ def extract_table(database="tutorial.db", table='daily', end_day=None, start_day
     with Database(database) as db:
         if not table_exist(table=table, database=database):
             logs.record_log(f"Table {table} does not exist")
-
+        logs.record_log(f"loading {table} from {database}")
         # print(db.query('select * from daily limit 1'))
         if pandas:
             # return pd.read_sql_query(sql, db.connection,parse_dates=['trade_date'])
@@ -177,7 +177,6 @@ def table_exist(table='daily', database="tutorial.db"):
     sql = f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table}' "
 
     with Database(database) as db:
-        print(db.query(sql))
         return len(db.query(sql)) > 0
 
 

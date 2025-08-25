@@ -9,7 +9,7 @@
 from dataclasses import dataclass
 from enum import Enum
 import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
 class EventType(str, Enum):
@@ -20,6 +20,7 @@ class EventType(str, Enum):
     SNAPSHOT = 'SNAPSHOT'  # <-- NEW
     FEATURE = "FEATURE"
     ML_FEATURE = "ML_FEATURE"
+    ANALYTICS = "ANALYTICS"
 
 
 @dataclass
@@ -78,6 +79,7 @@ class MarketEvent(Event):
     high: float
     low: float
     close: float
+    adj_factor: Optional[float] = None  # 可选：当日累计复权因子
 
     def __init__(self, datetime, symbol, open, high, low, close):
         super().__init__(EventType.MARKET, datetime)
@@ -89,15 +91,47 @@ class MarketEvent(Event):
 
 
 @dataclass
+class AnalyticsEvent(Event):
+    symbol: str
+    datetime: datetime
+    features: Dict[str, float]  # e.g. {"close_raw":..., "close_adj":..., "ma_5":...}
+    target: Optional[int] = None  # 0/1 标签，或 None（实盘可为空）
+
+    def __init__(self, datetime, symbol, features, target):
+        super().__init__(EventType.ANALYTICS, datetime)
+        self.symbol = symbol
+        self.features = features
+        self.target = target
+
+
+@dataclass
+class MLFeatureEvent(Event):
+    symbol: str
+    datetime: datetime
+    prediction: int  # 1 / -1
+    probability: float  # 0~1
+    meta: Dict[str, Any]
+
+    def __init__(self, symbol, datetime, prediction, probability, meta):
+        super().__init__(EventType.ML_FEATURE, datetime)
+        self.prediction = prediction
+        self.probability = probability
+        self.meta = meta
+        self.symbol = symbol
+
+
+@dataclass
 class SignalEvent(Event):
     symbol: str
     signal_type: str  # "BUY" or "SELL"
+    source: str # source model
     limit_price: float = None
 
-    def __init__(self, symbol, datetime, signal_type):
+    def __init__(self, symbol, datetime, signal_type, source):
         super().__init__(EventType.SIGNAL, datetime)
         self.symbol = symbol
         self.signal_type = signal_type
+        self.source = source
 
 
 @dataclass
