@@ -17,7 +17,7 @@ class DailyBarDataHandler:
     Emits MarketEvent per symbol per day.
     """
 
-    def __init__(self, data: pd.DataFrame, events, settings: Settings):
+    def __init__(self, data: pd.DataFrame, settings: Settings):
         """
         Parameters:
         - data: A pandas DataFrame with columns [date, symbol, open, high, low, close]
@@ -25,7 +25,6 @@ class DailyBarDataHandler:
         """
         self.symbol_data = data
 
-        self.events = events
         self.continue_backtest = True
 
         self._index_iter = self._generate_index_iterator()
@@ -44,21 +43,6 @@ class DailyBarDataHandler:
         index = self.symbol_data['date']
         for date in index:
             yield date
-
-    # def apply_adjustments(self, df: pd.DataFrame) -> pd.DataFrame:
-    #     adj_factors = tushare_api.get_adj_factors(...)
-    #     df["adj_factor"] = df["date"].map(adj_factors)
-    #     df[["open", "high", "low", "close"]] *= df["adj_factor"]
-    #     return df
-
-    # def _apply_adjustment(self, data):
-    #     # adjust_type = MODE_TO_ADJUST.get(RUN_MODE, "none")
-    #     if adjust_type == "qfq":
-    #         return self._forward_adjust(data)
-    #     elif adjust_type == "hfq":
-    #         return self._backward_adjust(data)
-    #     else:
-    #         return data
 
     def _forward_adjust(self, data):
         # Implement your forward adjustment logic
@@ -91,7 +75,7 @@ class DailyBarDataHandler:
                 high=bar["high"],
                 low=bar["low"],
                 close=bar["close"],
-
+                # volume=float(bar.get("volume", 0)),
+                # adj_factor=float(bar["adj_factor"]) if bar["adj_factor"] is not None else None,
             )
-            if self.events:
-                self.events.put(event)
+            yield event

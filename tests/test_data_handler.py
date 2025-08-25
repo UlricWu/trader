@@ -24,16 +24,23 @@ def test_data_handler_streams_market_events(tmp_path, default_settings):
     # file = tmp_path / "mock_data.csv"
     # df.to_csv(file, index=False)
 
-    events = Queue()
-    handler = DailyBarDataHandler(data=df, events=events, settings=default_settings)
-
-    handler.stream_next()
-    assert not events.empty()
-
+    handler = DailyBarDataHandler(data=df, settings=default_settings)
     count = 0
-    while not events.empty():
-        event = events.get()
-        assert isinstance(event, MarketEvent)
-        count += 1
+    while handler.continue_backtest:
+        # 1. Pump next market bar
 
-    assert count == 2  # 2 symbols on one date
+        # Pump MarketEvents from generator
+        for market_event in handler.stream_next():
+            if market_event is None:
+                continue
+
+            count += 1
+    # assert not events.empty()
+    #
+    #
+    # while not events.empty():
+    #     event = events.get()
+    #     assert isinstance(event, MarketEvent)
+    #     count += 1
+    #
+    assert count == 4  # 2 symbols on one date

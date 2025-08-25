@@ -31,7 +31,7 @@ class Backtest:
 
         # Core components
         self.data_handler = DailyBarDataHandler(
-            data=data, events=self.events, settings=settings
+            data=data, settings=settings
         )
         self.feature_store = FeatureStore()
         self.strategy = strategy_class(settings=settings, feature_store=self.feature_store)
@@ -88,15 +88,18 @@ class Backtest:
         logs.record_log("开始回放历史数据")
         while self.data_handler.continue_backtest:
             # 1. Pump next market bar
-            self.data_handler.stream_next()
-            # self.data_handler.update_bars()
+
+            # Pump MarketEvents from generator
+            for market_event in self.data_handler.stream_next():
+                if market_event is None:
+                    continue
+                last_datetime = getattr(market_event, "datetime", None)
+                # push into queue
+                self.events.put(market_event)
 
             # 2. Process event queue until empty
             while not self.events.empty():
                 event = self.events.get()
-                if event is None:
-                    continue
-                last_datetime = getattr(event, "datetime", None)
                 self._process_event(event)
 
             # 3. End-of-day snapshot

@@ -34,3 +34,21 @@ class Adjuster:
             return raw_close * (F_now / F_t)
 
         return raw_close
+
+
+
+    # def apply_adjustments(self, df: pd.DataFrame) -> pd.DataFrame:
+    #     adj_factors = tushare_api.get_adj_factors(...)
+    #     df["adj_factor"] = df["date"].map(adj_factors)
+    #     df[["open", "high", "low", "close"]] *= df["adj_factor"]
+    #     return df
+
+    # def _apply_adjustment(self, data):
+    #     # adjust_type = MODE_TO_ADJUST.get(RUN_MODE, "none")
+    #     if adjust_type == "qfq":
+    #         return self._forward_adjust(data)
+    #     elif adjust_type == "hfq":
+    #         return self._backward_adjust(data)
+    #     else:
+    #         return data
+

@@ -26,8 +26,8 @@ def train():
     df = db.extract_table(database='db/tutorial.db', end_day="20250205", start_day='20241001', ts_code=codes)
     data = db.load_and_normalize_data(df)
 
-    # bt = Backtest(data=data, settings=settings)
-    bt = Backtest(data=data, settings=settings, strategy_class=MLStrategy)
+    bt = Backtest(data=data, settings=settings)
+    # bt = Backtest(data=data, settings=settings, strategy_class=MLStrategy)
 
     bt.run()
     # print(bt.summary())
