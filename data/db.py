@@ -67,7 +67,7 @@ class Database:
 
 
 def update_daily(table, data):
-    if check_table(table):
+    if not table_exist(table):
         create_table(table)
 
     today = datetime.today().strftime('%Y%m%d')
@@ -138,7 +138,7 @@ def extract_codes(database="tutorial.db", table='daily', end_day=None, start_day
     sql = f"select  ts_code from {table} where  trade_date =  (select trade_date from {table} order by trade_date desc limit 1)"
 
     with Database(database) as db:
-        if not check_table(table=table, database=database):
+        if not table_exist(table=table, database=database):
             logs.record_log(f"Table {table} does not exist")
 
         return [s[0] for s in db.query(sql)]
@@ -160,7 +160,7 @@ def extract_table(database="tutorial.db", table='daily', end_day=None, start_day
         sql += f"""and ts_code IN ('{id_sql}') """
 
     with Database(database) as db:
-        if not check_table(table=table, database=database):
+        if not table_exist(table=table, database=database):
             logs.record_log(f"Table {table} does not exist")
 
         # print(db.query('select * from daily limit 1'))
@@ -173,11 +173,12 @@ def extract_table(database="tutorial.db", table='daily', end_day=None, start_day
         return db.query(sql)
 
 
-def check_table(table='daily', database="tutorial.db"):
+def table_exist(table='daily', database="tutorial.db"):
     sql = f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table}' "
 
     with Database(database) as db:
-        return len(db.query(sql)) == 0
+        print(db.query(sql))
+        return len(db.query(sql)) > 0
 
 
 def create_table_daily():

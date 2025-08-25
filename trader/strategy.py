@@ -1,3 +1,22 @@
+# # strategy.py
+# import os
+# import pickle
+# from abc import ABC, abstractmethod
+# import re
+#
+# import joblib
+# import numpy as np
+
+
+# ml_strategy.py
+from collections import defaultdict
+import numpy as np
+import pandas as pd
+
+from trader.events import EventType, MarketEvent, SignalEvent, Event
+from utilts import logs
+from trader.config import Settings
+
 # strategy.py
 import os
 import pickle
@@ -7,199 +26,162 @@ import re
 import joblib
 import numpy as np
 
-from trader.events import SignalEvent, EventType
+from trader.events import SignalEvent, EventType, Event
 from collections import defaultdict
-from utilts.logs import logs
 from trader.config import Settings
 from trader.model import Model
 from sklearn.ensemble import RandomForestClassifier
 import pandas as pd
+from trader.events import EventType, MarketEvent, SignalEvent
+from abc import ABC, abstractmethod
+from collections import defaultdict
+from typing import List
+
+from trader.events import EventType, MarketEvent, SignalEvent
+from utilts.logs import logs
+
+# trader/analytics/base_strategy.py
+from abc import ABC, abstractmethod
+from trader.events import FeatureEvent, SignalEvent, EventType
+from typing import Deque, Dict, List, Tuple, Optional, Callable
+from collections import deque
+
+# trader/analytics/rule_strategy.py
+import pandas as pd
+# from trader.analytics.base_strategy import BaseStrategy
+from trader.events import FeatureEvent, SignalEvent
+# trader/analytics/ml_strategy.py
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+# from trader.analytics.base_strategy import BaseStrategy
+from trader.events import FeatureEvent, SignalEvent
 
 
 class BaseStrategy(ABC):
-    def __init__(self, events=None, settings: Settings = None):
-        self.events = events
-        self.settings = settings
+    """Abstract base class for all strategies."""
 
-    def put_event(self, event):
-        """Safely put event into the queue if events queue exists."""
-        if self.events:
-            self.events.put(event)
+    def __init__(self, settings, train_window=30):
+        self.settings = settings
+        # Keep rolling buffer of features
+        self.train_window = train_window
+        self.feature_buffer = deque(maxlen=train_window)
+        self.rows: Dict[str, Deque[dict]] = {}
+        self.predictions: Dict[str, list[tuple]] = {}
+        self.estimator = {}
+
+    def on_market(self, event: FeatureEvent) -> None:
+        """Only handle FEATURE events, then delegate to concrete logic."""
+        if event.type != EventType.FEATURE or event is None:
+            print(f'skip event: {event}')
+            return
+        self.handle_features(event)
+
+        return self._generate_signal(event)
 
     @abstractmethod
-    def on_market(self, event):
-        pass
+    def _generate_signal(self, event: FeatureEvent) -> None:
+        """Implemented by concrete strategy classes."""
+        raise NotImplementedError
+
+    # @abstractmethod
+    def handle_features(self, event: FeatureEvent) -> None:
+
+        s = event.symbol
+        if s not in self.rows:
+            self.rows[s] = deque(maxlen=self.train_window)
+            # self.counter[s] = 0
+            # self.[s] = self.model_builder()
+
+        # Append one row (features dict must include a "Close" for target construction)
+        self.rows[s].append(dict(event.features))
+
+    def get_features(self, symbol: str) -> pd.DataFrame:
+        return pd.DataFrame(self.rows[symbol])
 
 
-class MLSignalGenerator:
-    def __init__(self, train_window: int = 60):
-        self.model = RandomForestClassifier(n_estimators=100, random_state=42)
-        self.train_window = train_window  # How many past bars to use for training
+class MLStrategy(BaseStrategy):
+    def __init__(self, settings, train_window: int = 60):
+        super().__init__(settings)
+        # self.model = RandomForestClassifier(n_estimators=100, random_state=42)
+        self.train_window = train_window
         self.features = ["MA5", "MA10", "Return_1d"]
-        self.trained = False
 
-    def prepare_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        df["Return_1d"] = df["close"].pct_change()
-        df["MA5"] = df["close"].rolling(5).mean()
-        df["MA10"] = df["close"].rolling(10).mean()
-        df["Target"] = (df["close"].shift(-1) > df["close"]).astype(int)
-        return df.dropna()
+    def _generate_signal(self, event: FeatureEvent) -> None:
 
-    def train_and_predict(self, df: pd.DataFrame) -> int:
-        df = self.prepare_features(df)
-        if len(df) < self.train_window + 1:
-            return 0  # Not enough data to train
+        # if not self.trained:
+        symbol = event.symbol
 
-        X_test, X_train, y_train = self._split(df)
+        df = self.get_features(symbol)
 
-        self.model.fit(X_train, y_train)
-        pred = self.model.predict(X_test)[0]
-        self.trained = True
-        return pred  # 1: Buy, 0: Hold/Sell
+        if len(df) < self.train_window:
+            return
+
+        if symbol not in self.estimator:
+            self.estimator[symbol] = RandomForestClassifier(n_estimators=100, random_state=42)
+
+        X_test, X_train, y_train, y_test = self._split(df)
+
+        model = self.estimator[symbol]
+        model.fit(X_train, y_train)
+        self.estimator[symbol] = model
+
+        prob_up = model.predict_proba(X_test)[0][1]  # P(price up)
+        # optional min confidence check
+        confidence = abs(prob_up)
+        if 0 < confidence <= self.settings.model.min_confidence_to_trade:
+            logs.record_log(f'skip event={event} because pred probability ={prob_up} with low confidence={confidence}')
+            return
+
+        signal = "BUY" if prob_up > 0 else "SELL"
+        return SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type=signal)
+
+        #     #     # last_signal = signals["signal"].iloc[-1]
+        #         if pred == 1 and self.current_position == "FLAT":
+        #             self.current_position = "LONG"
+        #             signal = "BUY"
+        #         elif pred == 0 and self.current_position == "LONG":
+        #             self.current_position = "FLAT"
+        #     def summary(self):
+        #         correct = sum(1 for p, a in self.predictions if p == a)
+        #         accuracy = correct / len()
+        #         avg_conf = sum(abs(prob - 0.5) for prob, _ in self.predictions) / len(self.predictions) * 2
+        #
+        #         print(f"ML Prediction Accuracy: {accuracy:.2%} ({correct}/{len(self.predictions)})")
+        #         print(f"Avg Prediction Confidence: {avg_conf:.2%}")
 
     def _split(self, df):
         # Split: train on [:-1], test on [-1] row
+        df['Target'] = (df["Return_1d"].shift(-1) > 0).astype(int)
         train_df = df.iloc[-(self.train_window + 1):-1]
+
         test_df = df.iloc[-1:]
         X_train = train_df[self.features]
         y_train = train_df["Target"]
         X_test = test_df[self.features]
-        return X_test, X_train, y_train
-
-    def train_and_predict_proba(self, df: pd.DataFrame) -> float:
-        df = self.prepare_features(df)
-        if len(df) < self.train_window + 1:
-            return 0.5  # Neutral probability if insufficient data
-
-        X_test, X_train, y_train = self._split(df)
-
-        self.model.fit(X_train, y_train)
-        prob_up = self.model.predict_proba(X_test)[0][1]  # P(price up)
-        return prob_up
+        y_test = test_df["Target"]
+        return X_test, X_train, y_train, y_test
 
 
-class MLStrategy(BaseStrategy):
-    def __init__(self, events, settings: Settings, model=MLSignalGenerator):
-        super().__init__(events, settings)
-        self.prices = defaultdict(list)
-
-        self.signal_generator = model()
-        self.predictions = []  # (predicted, actual)
-
-        self.current_position = "FLAT"  # or "LONG"
-
-        self.prob = settings.model.prob
-
-    def on_market(self, event):
-        if event.type != EventType.MARKET:
-            logs.record_log(f"Skipping {event}", 3)
-            return
-
-        # Update the price history for each symbol
-        self.prices[event.symbol].append(event)
-
-        windows = self.settings.model.training_windows
-        if len(self.prices[event.symbol]) <= windows + 1:
-            logs.record_log(
-                f"Skipping {event} because there is not enough data ({len(self.prices[event.symbol])} < {windows})",
-                2
-            )
-
-            return
-
-        # 1. Feature generation
-        df = self._bars_to_dataframe(self.prices[event.symbol])
-
-        signal_type = self._generate_signal(df)
-        if  signal_type=='HOLDING':
-            logs.record_log(f'holding prediction {event}', )
-            return  # error
-
-        signal = SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type=signal_type)
-        self.events.put(signal)
-
-    def _generate_signal(self, df):
-        signal = 'HOLD'
-        if self.prob:
-            pred = self.signal_generator.train_and_predict_proba(df)
-
-            if pred is None or np.isnan(pred):
-
-                return ''
-
-            # optional min confidence check
-            confidence = abs(pred - 0.5)
-            if 0< confidence <= self.settings.model.min_confidence_to_trade:
-                logs.record_log(f'skip because pred probability ={pred} with low confidence={confidence}')
-                return ''
-
-            # 3. Send Signal
-            if pred == 1 and self.current_position == "FLAT":
-                # Generate LONG signal
-
-                self.current_position = "LONG"
-                signal = 'BUY'
-            elif pred == 0 and self.current_position == "LONG":
-                # Generate EXIT signal
-
-                self.current_position = "FLAT"
-                signal = 'SELL'
-            # Else, hold position
-
-        else:
-            pred = self.signal_generator.train_and_predict(df)
-
-            if pred not in {1, 0, -1}:
-                logs.record_log('skip because pred is {pred}')
-                return signal
-            if pred == 1 and self.current_position == "FLAT":
-                signal = 'BUY'
-            elif pred == 0 and self.current_position == "LONG":
-                signal = 'SELL'
-                self.current_position = "FLAT"
-
-        actual = df["Target"].iloc[-1]  # ground truth from last bar
-        self.predictions.append((pred, actual))
-
-        return signal
-
-    def _bars_to_dataframe(self, lists):
-
-        # ===== Feature Extraction =====
-        try:
-            # features = [getattr(event, feat) for feat in self.feature_list]
-            features = pd.DataFrame(lists)[["open", "high", "low", "close"]]
-        except AttributeError as e:
-            raise ValueError(f"Missing feature in MarketEvent: {e}")
-
-        return features
-
-
-class Strategy(BaseStrategy):
-    slippage = 0.01
-
-    def __init__(self, events, settings: Settings):
-        super().__init__(events, settings)
-        self.prices = defaultdict(list)
+class RuleStrategy(BaseStrategy):
+    def __init__(self, settings, short_window: int = 5, long_window: int = 20):
+        super().__init__(settings)
         self.window = settings.trading.WINDOWS
 
-    def on_market(self, event):
-        if event.type != EventType.MARKET:
-            logs.record_log(f"Skipping {event}", 3)
+    def _generate_signal(self, event: FeatureEvent) -> None:
+        # skip_event = Event(None, None)  # hold
+        s = event.symbol
+        df = self.get_features(s)
+
+        if len(df) < self.window:
             return
 
-        # Update the price history for each symbol
-        self.prices[event.symbol].append(event.close)
+        avg = sum(df['close'][-self.window:]) / self.window
+        signal_type = 'HOLDING'
 
-        if len(self.prices[event.symbol]) < self.window:
-            # a guard clause that ensures enough data exists before making a decision.
-            logs.record_log(f"Skipping {event} because there are price {self.prices} less than {self.window}", 2)
-            return
-
-        avg = sum(self.prices[event.symbol][-self.window:]) / self.window
-        if event.close > avg:
+        if event.features['close'] > avg:
+            signal_type = "BUY"
             # limit_price = event.close * (1 + self.slippage)  # Buy 1% above the close price
-            self.events.put(SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type="BUY"))
-        elif event.close < avg:
-            # limit_price = event.close * (1 - self.slippage)  # Sell 1% below the close price
-            self.events.put(SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type="SELL"))
+            # self.events.put(SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type="BUY"))
+        elif event.features['close'] < avg:
+            signal_type = "SELL"
+        return SignalEvent(symbol=event.symbol, datetime=event.datetime, signal_type=signal_type)

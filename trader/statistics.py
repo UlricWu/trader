@@ -1,8 +1,12 @@
+from typing import Tuple, Any
+
 import pandas as pd
 import numpy as np
 
 DECIMALS = 4
 YEAR = 252
+MONTHLY = 12
+WEEKLY = 52
 
 
 def round_float(x: float) -> float:
@@ -71,9 +75,9 @@ def create_sortino_ratio(returns, periods=YEAR):
 def _ensure_series(data) -> pd.DataFrame:
     """Ensure input is a DataFrame; convert Series to DataFrame."""
     if isinstance(data, pd.Series):
-        return data
+        return data.dropna()
     elif isinstance(data, pd.DataFrame):
-        return data.squeeze()
+        return data.squeeze().dropna()
     else:
         raise TypeError(f"Input must be a pandas DataFrame or Series, got {type(data)}")
 
@@ -84,11 +88,42 @@ def daily_returns(equity) -> pd.DataFrame:
     return round_float(equity.dropna().pct_change().fillna(0))
 
 
+def aggregated_daily_pnl(equity) -> pd.Series:
+    """
+    Return aggregated daily PnL series.
+    """
+    equity = _ensure_series(equity)
+
+    pnl = equity.diff().dropna()
+    daily_pnl = pnl.groupby(pnl.index.date).sum()
+    daily_pnl.index = pd.to_datetime(daily_pnl.index)
+    return daily_pnl
+
+
+def _monthly_return_matrix(returns: pd.DataFrame):
+    month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    monthly_returns_df = returns.resample("ME").apply(lambda x: (1 + x).prod() - 1).round(2).to_frame(
+        "Return")
+    monthly_returns_df["Year"] = monthly_returns_df.index.year
+    monthly_returns_df["Month"] = monthly_returns_df.index.strftime("%b")
+    pivot_table = monthly_returns_df.pivot(index="Year", columns="Month", values="Return")
+    pivot_table = pivot_table.reindex(columns=month_order)
+    return pivot_table
+
+
 def annual_returns(equity) -> float:
     daily = daily_returns(equity)
-    annual = (1 + daily.mean()) ** YEAR - 1
+    # Calculate the compounded return over the entire period
+    compounded_return = (1 + daily).prod() - 1
 
-    return round_float(annual)
+    # Determine the total number of periods in your data
+    total_periods = len(daily)
+
+    # Calculate the annualized return
+    annualized_return = (1 + compounded_return) ** (YEAR / total_periods) - 1
+
+    return round_float(annualized_return)
 
 
 # def cagr(equity: pd.Series) -> float:
@@ -116,25 +151,40 @@ def cumulative_returns(equity) -> float:
     return round_float(cum)
 
 
-def max_drawdown_and_duration(equity) -> dict:
-    """Calculate max drawdown and its duration for each column."""
-    equity = _ensure_series(equity)
-    running_max = equity.cummax()
-    drawdown = (equity / running_max) - 1.0
-    max_dd = drawdown.min()
-    duration = equity.index.to_series().groupby((equity == running_max).cumsum()).cumcount()
-    max_duration = duration.max()
+# from __future__ import annotations
+from typing import Tuple, Union
+import pandas as pd
+import numpy as np
 
-    return round_float(max_dd), max_duration
 
-# Example usage
-# if __name__ == "__main__":
-#     dates = pd.date_range("2024-01-01", periods=10, freq="D")
-#     eq_series = pd.Series([100, 102, 101, 99, 98, 97, 99, 100, 101, 103], index=dates, name="strategy_A")
-#     eq_df = pd.DataFrame({
-#         "strategy_A": [100, 102, 101, 99, 98, 97, 99, 100, 101, 103],
-#         "strategy_B": [50, 51, 50.5, 52, 51, 50, 49, 51, 52, 53]
-#     }, index=dates)
-#
-#     print("\nFrom Series Sharpe:", sharpe_ratio(eq_series))
-#     print("From DF Sharpe:", sharpe_ratio(eq_df))
+def max_drawdown_and_duration(e):
+    """
+    Compute maximum drawdown (negative float) and its duration in days.
+
+    If `e` is a Series -> returns (mdd_float, duration_days_int).
+    If `e` is a DataFrame -> returns (mdd_series, duration_series) aligned to columns.
+
+    Assumptions:
+      - Index represents time; function will try to convert to DatetimeIndex and sort.
+      - Values are equity/wealth levels (not returns).
+      - NaNs are ignored when possible.
+
+    Raises:
+      TypeError: if input is not a Series/DataFrame or index cannot be converted to datetime.
+    """
+
+    s = _ensure_series(e)
+    cummax = s.cummax()
+    dd = s.div(cummax) - 1.0
+
+    mdd = float(dd.min())  # negative number (e.g., -0.23 for -23%)
+    trough_ts = dd.idxmin()
+
+    # restrict to data up to trough to find peak before trough
+    pre = s.loc[:trough_ts].dropna()
+    if pre.empty:
+        return mdd, 0
+    peak_ts = pre.idxmax()
+
+    duration_days = int((trough_ts - peak_ts).days)
+    return round_float(mdd), max(duration_days, 0)

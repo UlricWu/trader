@@ -10,7 +10,7 @@ import pytest
 import queue
 from trader.events import EventType, MarketEvent
 from trader.data_handler import DailyBarDataHandler
-from trader.strategy import Strategy
+from trader.strategy import RuleStrategy
 from trader.execution import ExecutionHandler
 from trader.portfolio import Portfolio
 from datetime import datetime, timedelta
@@ -18,6 +18,12 @@ from unittest.mock import MagicMock
 
 from trader.config import load_settings, Settings
 from trader.portfolio import Position
+
+
+# -------------------------
+# Test doubles (fakes/spies)
+# -------------------------
+
 
 @pytest.fixture
 def event_queue():
@@ -31,24 +37,24 @@ def default_settings() -> Settings:
 
 
 @pytest.fixture
-def event_strategy(event_queue, default_settings):
-    return Strategy(events=event_queue, settings=default_settings)
+def event_strategy(default_settings):
+    return RuleStrategy(settings=default_settings)
 
 
 @pytest.fixture
-def event_execution_handler(event_queue, default_settings):
-    return ExecutionHandler(events=event_queue, settings=default_settings)
+def event_execution_handler(default_settings):
+    return ExecutionHandler(settings=default_settings)
 
 
 @pytest.fixture
-def event_portfolio(event_queue, default_settings):
-    return Portfolio(events=event_queue, settings=default_settings)
+def event_portfolio(default_settings):
+    return Portfolio(settings=default_settings)
 
 
 @pytest.fixture
 def Commission_portfolio_with_mock_events(default_settings):
     events = MagicMock()
-    portfolio = Portfolio(events=events, settings=default_settings)
+    portfolio = Portfolio(settings=default_settings)
     portfolio.positions['AAPL'] = Position(symbol='AAPL', quantity=0)
     portfolio.current_prices = {'AAPL': 100}  # Set mock price
     return portfolio, events

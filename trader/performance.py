@@ -42,7 +42,7 @@ class PerformanceAnalyzer:
         if equity is None:
             equity = self.portfolio.symbol_equity_df
 
-        results = {'account': self._summary(equity.sum(axis=1))}
+        results = {'account': self._summary(self.equity_df)}
         for col in equity.columns:
             e = equity[col]
             results[col] = self._summary(e)
@@ -54,6 +54,7 @@ class PerformanceAnalyzer:
         max_dd, dd_dur = stats.max_drawdown_and_duration(e)
         sharpe = stats.sharpe_ratio(e)
         return {
+            "daily_pnl": stats.aggregated_daily_pnl(e),
             "equity": e,
             "returns": daily,
             "sharpe": sharpe,
@@ -69,7 +70,7 @@ class PerformanceAnalyzer:
         summary = self.summary()
 
         n_symbols = len(summary.keys())
-        n_panels = 3  # Equity, Drawdown, table, Monthly Returns
+        n_panels = 3  # daily_pnl, Equity, Drawdown, table, Monthly Returns
         fig, axes = plt.subplots(n_panels + n_symbols, 1, figsize=(12, 8))
 
         # 1. Equity curve
@@ -119,6 +120,9 @@ class PerformanceAnalyzer:
     def _equity_curve_df(self, summary):
         lst = []
         for sym, s in summary.items():
+            if sym == 'account':
+                # print(s.head())
+                continue
             temp = s['equity'].copy()
             temp.name = sym
             lst.append(temp)
@@ -128,22 +132,22 @@ class PerformanceAnalyzer:
     def _plot_monthly_returns(ax, summary: dict):
         if ax is None:
             ax = plt.gca()
-        pivot_table = PerformanceAnalyzer._monthly_return_matrix(summary['returns'])
+        pivot_table = stats._monthly_return_matrix(summary['returns'])
 
         sns.heatmap(pivot_table, annot=True, fmt=".1%", center=0,
                     cmap="RdYlGn", ax=ax, cbar=False)
 
-    @staticmethod
-    def _monthly_return_matrix(returns):
-        month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        monthly_returns_df = returns.resample("ME").apply(lambda x: (1 + x).prod() - 1).round(2).to_frame(
-            "Return")
-        monthly_returns_df["Year"] = monthly_returns_df.index.year
-        monthly_returns_df["Month"] = monthly_returns_df.index.strftime("%b")
-        pivot_table = monthly_returns_df.pivot(index="Year", columns="Month", values="Return")
-        pivot_table = pivot_table.reindex(columns=month_order)
-        return pivot_table
+    # @staticmethod
+    # def _monthly_return_matrix(returns):
+    #     month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    #                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    #     monthly_returns_df = returns.resample("ME").apply(lambda x: (1 + x).prod() - 1).round(2).to_frame(
+    #         "Return")
+    #     monthly_returns_df["Year"] = monthly_returns_df.index.year
+    #     monthly_returns_df["Month"] = monthly_returns_df.index.strftime("%b")
+    #     pivot_table = monthly_returns_df.pivot(index="Year", columns="Month", values="Return")
+    #     pivot_table = pivot_table.reindex(columns=month_order)
+    #     return pivot_table
 
     @staticmethod
     def _plot_stats_table(ax, stats_dict: dict):

@@ -9,6 +9,7 @@
 from dataclasses import dataclass
 from enum import Enum
 import datetime
+from typing import Any, Dict
 
 
 class EventType(str, Enum):
@@ -16,12 +17,58 @@ class EventType(str, Enum):
     SIGNAL = "SIGNAL"
     ORDER = "ORDER"
     FILL = "FILL"
+    SNAPSHOT = 'SNAPSHOT'  # <-- NEW
+    FEATURE = "FEATURE"
+    ML_FEATURE = "ML_FEATURE"
 
 
 @dataclass
 class Event:
-    type: EventType
+    type: EventType | None
     datetime: datetime
+
+    def is_empty(self) -> bool:
+        """
+        Check if the event is 'empty' (not fully initialized).
+        Useful for safely handling default or placeholder events.
+        """
+        return self.type is None or self.datetime is None
+
+    def no_empty(self) -> bool:
+        return self.type and self.datetime
+
+
+@dataclass
+class FeatureEvent(Event):
+    symbol: str = ""
+    features: Dict[str, Any] = None
+
+    def __init__(self, symbol: str, datetime: datetime, features: Dict[str, Any]):
+        super().__init__(EventType.FEATURE, datetime)
+        self.symbol = symbol
+        self.features = features
+
+
+@dataclass
+class MLFeatureEvent(Event):
+    symbol: str = ""
+    features: Dict[str, Any] = None
+    prediction: int = 0
+    probability: float = 0.0
+
+    def __init__(
+            self,
+            symbol: str,
+            datetime: datetime,
+            features: Dict[str, Any],
+            prediction: int,
+            probability: float,
+    ):
+        super().__init__(EventType.ML_FEATURE, datetime, features)
+        self.symbol = symbol
+        self.features = features
+        self.prediction = prediction
+        self.probability = probability
 
 
 @dataclass

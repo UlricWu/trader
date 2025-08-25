@@ -1,85 +1,159 @@
-# backtest_engine.py
-from queue import Queue, Empty
+#!filepath: trader/backtest_engine.py
 
-from matplotlib import pyplot as plt
+from queue import Queue
+from typing import Optional
 
-from trader.events import EventType
-from trader.portfolio import Portfolio
-from trader.strategy import Strategy
-from trader.execution import ExecutionHandler
+from trader.event_bus import EventBus
+from trader.events import Event, EventType, SignalEvent, OrderEvent, FillEvent
 from trader.data_handler import DailyBarDataHandler
+from trader.strategy import RuleStrategy
+from trader.execution import ExecutionHandler
+from trader.portfolio import Portfolio
+from trader.risk_manager import RiskManager
 from trader.config import Settings
 from utilts.logs import logs
 
+from trader.features import FeatureEngineer
+
 
 class Backtest:
-    def __init__(self, data, settings: Settings, strategy=Strategy):
-        self.events = Queue()
+    """
+    Event-driven backtest engine using:
+    - Event queue (FIFO)
+    - EventBus for routing with priorities
+    - RiskManager stage for SIGNAL filtering
+    """
 
-        self.data_handler = DailyBarDataHandler(data=data, events=self.events, settings=settings)
-        self.strategy = strategy(self.events, settings=settings)
-        self.execution_handler = ExecutionHandler(self.events, settings=settings)
-        self.portfolio = Portfolio(self.events, settings=settings)
+    def __init__(self, data, settings: Settings, strategy_class=RuleStrategy):
+        self.events: Queue[Event] = Queue()
+        self.settings = settings
 
-        if not len(data):
-            logs.record_log("策略初始化异常，数据为空", 3)
-            return
-        logs.record_log("策略初始化完成")
+        # Core components
+        self.data_handler = DailyBarDataHandler(
+            data=data, events=self.events, settings=settings
+        )
+        self.strategy = strategy_class(settings=settings)
+        self.execution_handler = ExecutionHandler(settings=settings)
+        self.portfolio = Portfolio(settings=settings)
+        self.risk = RiskManager(settings=settings, portfolio=self.portfolio)
+
+        # EventBus with emit -> queue.put
+        self.bus = EventBus(emit_fn=self.events.put)
+
+        self.features = FeatureEngineer()
+
+        # -----------------------------
+        # Subscriptions with priorities
+        # FeatureEngineer → FeatureEvent → Strategy → SignalEvent → Portfolio.
+        # -----------------------------
+
+        # MARKET → features
+        self.bus.subscribe(EventType.MARKET, self._on_market_features, priority=5)
+        self.bus.subscribe(EventType.MARKET, self._on_market_portfolio, priority=10)
+
+        # FEATURE → ML pipeline
+        # todo
+        # ML_FEATURE → strategy
+        # MARKET: portfolio (update prices) → strategy (generate SIGNAL)
+        self.bus.subscribe(EventType.FEATURE, self._on_market_strategy, priority=10)
+
+        # SIGNAL: risk (filter) → portfolio (create ORDER)
+        self.bus.subscribe(EventType.SIGNAL, self._on_signal_risk, priority=10)
+        self.bus.subscribe(EventType.SIGNAL, self._on_signal_portfolio, priority=20)
+
+        # ORDER: execution (create FILL)
+        self.bus.subscribe(EventType.ORDER, self._on_order_exec, priority=10)
+
+        # FILL: portfolio updates state
+        self.bus.subscribe(EventType.FILL, self._on_fill_portfolio, priority=10)
+
+        self.bus.subscribe(EventType.SNAPSHOT, self._on_snapshot, priority=10)
+
+    # =============================
+    # Event processing
+    # =============================
+
+    def _process_event(self, event: Event):
+        """Push event into bus for routing to handlers."""
+        self.bus.publish(event)
 
     def run(self):
-        """Run the backtest loop."""
+        """Main backtest loop."""
+        logs.record_log("Starting backtest...", 1)
+        logs.record_log("开始回放历史数据")
         while self.data_handler.continue_backtest:
-
-            logs.record_log("开始回放历史数据")
+            # 1. Pump next market bar
             self.data_handler.stream_next()
+            # self.data_handler.update_bars()
 
+            # 2. Process event queue until empty
             while not self.events.empty():
-
                 event = self.events.get()
+                if event is None:
+                    continue
+                last_datetime = getattr(event, "datetime", None)
+                self._process_event(event)
 
-                # if len(self.portfolio.history) % 50 == 0:
-                #     print(self.portfolio.history)
-                # last_equity = self.portfolio.history
-                # logs.record_log(f"Equity at step {len(self.portfolio.history)}: {last_equity}")
+            # 3. End-of-day snapshot
+            if last_datetime:
+                self.bus.emit(Event(EventType.SNAPSHOT, last_datetime))
 
-                if event.type == EventType.MARKET:
-                    self.strategy.on_market(event)
-                    self.portfolio.update_price(event)
+        logs.record_log("Backtest finished.", 1)
 
-                elif event.type == EventType.SIGNAL:
-                    self.portfolio.on_signal(event)
+    # =============================
+    # Adapters: existing components
+    # =============================
 
-                elif event.type == EventType.ORDER:
-                    # Use close price as market execution price
-                    price = self.portfolio.current_prices.get(event.symbol)
-                    if price is None:
-                        logs.record_log(f"No market price available for {event.symbol}", 3)
-                        continue
-                    self.execution_handler.execute_order(event, price)
+    def _on_market_features(self, event: Event, bus: EventBus):
+        # print("start feature extraction...")
+        feature = self.features.on_market(event)
+        if feature.no_empty():
+            bus.emit(feature)
 
-                elif event.type == EventType.FILL:
-                    self.portfolio.on_fill(event)
-                else:
-                    message = f"backtest Unknown event type: {type(event)}"
-                    logs.record_log(message, 3)
-            self.portfolio.record_daily_snapshot(event.datetime)
+    def _on_market_portfolio(self, event: Event, bus: EventBus):
+        """Update portfolio prices from latest market data."""
+        # print('start portfolio update...')
+        self.portfolio.update_price(event)
 
-    def plot_equity_curve(self):
-        self.portfolio.equity_df.plot(title="Equity Curve", figsize=(10, 5))
-        plt.ylabel("Equity")
-        plt.show()
+    def _on_market_strategy(self, event: Event, bus: EventBus):
+        """Strategy reacts to MARKET event and may generate a SIGNAL."""
+        signal: Optional[SignalEvent] = self.strategy.on_market(event)
+        if signal:
+            # print(f'strategy event={event} send signal={signal}')
+            bus.emit(signal)
 
-    def summary(self):
-        if self.strategy and hasattr(self.strategy, "predictions"):
-            preds = self.strategy.predictions
-            if preds:
-                correct = sum(1 for p, a in preds if p == a)
-                accuracy = correct / len(preds)
-                print(f"ML Prediction Accuracy: {accuracy:.2%} ({correct}/{len(preds)})")
+    def _on_signal_risk(self, event: Event, bus: EventBus):
+        """Risk manager decides whether SIGNAL is allowed."""
+        # print('start risk manager')
+        decision = self.risk.decide(event)
+        if decision is None:
+            logs.record_log(f'risk manager detect risk and not approve for {event}',2)
+            # Block propagation (portfolio won’t see it)
+            return EventBus.CONSUME
 
-            # if preds:
-            #     correct = sum(1 for prob, a in preds if (prob >= 0.5) == a)
-            #     accuracy = correct / len(preds)
-            #     avg_conf = sum(abs(prob - 0.5) for prob, _ in preds) / len(preds) * 2
-            #     print(f"ML Prediction Accuracy: {accuracy:.2%} ({correct}/{len(preds)})")
-            #     print(f"Avg Prediction Confidence: {avg_conf:.2%}")
+    def _on_signal_portfolio(self, event: Event, bus: EventBus):
+        """Portfolio converts SIGNAL into ORDER if allowed."""
+        # print('start portfolio')
+        order: Optional[OrderEvent] = self.portfolio.on_signal(event)
+        if order:
+            bus.emit(order)
+
+    def _on_order_exec(self, event: OrderEvent, bus: EventBus):
+        """Execution handler converts ORDER into FILL."""
+
+        # print('start order exec')
+        price = self.portfolio.current_prices.get(event.symbol)
+        if price is None:
+            logs.record_log(f"No market price for {event.symbol}", 3)
+            return
+        fill: Optional[FillEvent] = self.execution_handler.execute_order(event, price)
+        if fill:
+            bus.emit(fill)
+
+    def _on_fill_portfolio(self, event: FillEvent, bus: EventBus):
+        """Portfolio updates state from FILL event."""
+        # print('start fill portfolio')
+        self.portfolio.on_fill(event)
+
+    def _on_snapshot(self, event: Event, bus: EventBus):
+        self.portfolio.record_daily_snapshot(event.datetime)  # event.data holds datetime

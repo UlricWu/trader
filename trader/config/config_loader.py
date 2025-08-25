@@ -42,31 +42,52 @@ class TradingSettings:
 class StrategySettings:
     short_window: int = 5
     long_window: int = 10
+    strategy: str = 'ml'
+    train_window: int = 30
+
+@dataclass
+class RiskSettings:
+    max_position_value_pct = 0.2
+    max_drawdown_pct = 0.15
+    default_qty = 100
+
+    max_leverage = 1.0
+    vol_target_annual = 0.20
+    vol_lookback = 20
+    min_trade_notional = 200.0
+    prob_enter = 0.55
+    prob_exit = 0.48
+    prob_size_k = 10.0
+    prob_size_mid = 0.60
+    min_size_fraction = 0.1
+    stop_loss_pct = 0.08
+    trailing_stop_pct = 0.06
+    take_profit_pct = None
+    max_daily_loss_pct = 0.03
+    cooldown_bars = 5
 
 
 @dataclass
 class MLSettings:
-    windows: int = 30
 
-    buy_threshold = 0.6
-    sell_threshold = 0.4
+
+    features: list = field(default_factory=lambda: ["MA5", "MA10", "Return_1d"])
 
     # model training
     early_stopping_logloss_threshold: float = 0.1
     model_type: str = "RandomForest"
     model_dir: str = "models"
     training_windows = 30
-    prob=False
-    buy_threshold: float = 0.6       # for prob-based decisions: p(up) >= buy_threshold => go LONG
-    sell_threshold: float = 0.4      # for prob-based decisions: p(up) <= sell_threshold => go SHORT/EXIT
-    use_prob: bool = True             # if True, generator expects probability; if False, expects class label
+    prob = False
+    buy_threshold: float = 0.6  # for prob-based decisions: p(up) >= buy_threshold => go LONG
+    sell_threshold: float = 0.4  # for prob-based decisions: p(up) <= sell_threshold => go SHORT/EXIT
+    use_prob: bool = True  # if True, generator expects probability; if False, expects class label
     prob_to_long_if_equal: bool = True
-    allow_short: bool = False         # allow shorting if True
-    position_size: float = 1.0        # default size (fractional) for trades
-    cooldown_bars: int = 0            # bars to wait after a trade before sending another
+    allow_short: bool = False  # allow shorting if True
+    position_size: float = 1.0  # default size (fractional) for trades
+    cooldown_bars: int = 0  # bars to wait after a trade before sending another
     min_confidence_to_trade: float = 0.1  # if >0, require |p-0.5| > min_confidence_to_trade
-    log_max_rows: int = 10000         # keep last N signal logs
-
+    log_max_rows: int = 10000  # keep last N signal logs
 
     #  setting
     auto_save: bool = False
@@ -81,6 +102,7 @@ class Settings:
     trading: TradingSettings = field(default_factory=TradingSettings)
     strategy: StrategySettings = field(default_factory=StrategySettings)
     model: MLSettings = field(default_factory=MLSettings)
+    risk: RiskSettings = field(default_factory=RiskSettings)
 
 
 def load_settings(yaml_file: Optional[str] = None) -> Settings:
@@ -93,6 +115,7 @@ def load_settings(yaml_file: Optional[str] = None) -> Settings:
             trading=TradingSettings(**data.get('trading', {})),
             strategy=StrategySettings(**data.get('strategy', {})),
             model=MLSettings(**data.get('ml', {})),
+            risk=RiskSettings()
         )
     else:
         return Settings()
